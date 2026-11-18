@@ -29,3 +29,15 @@ After the course participants will be able to:
 - evaluate the consistency and suitability of model outputs for research questions;
 - recognize limitations and sources of variability in generative AI-based analysis; and
 - document datasets, models, parameters, and prompts to support transparent and reproducible research workflows. 
+
+
+## Politicians dataset
+
+## Emotions dataset
+
+The emotions dataset outputs are processed in [this notebook](emotions_output/compare_emotions_data_out.ipynb). Here we compare different questions for the same model.
+
+We can also compare the different questions for different models; usually you would only select a subset. In this case, we have used [all the proposed questions](emotions_output/questions.txt). The comparison is in [this notebook](emotions_output/compare_emotions_models.ipynb).
+
+# Symbols dataset
+
