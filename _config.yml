@@ -1,0 +1,5 @@
+theme: jekyll-theme-slate
+title: Prompting and Evaluating Multimodal AI Models with AMMICO
+description: Perform AI-based analysis of image and multimodal datasets.
+url: https://ssciwr.github.io
+baseurl: /prompting-evaluating-VLM-course
