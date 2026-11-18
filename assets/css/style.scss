@@ -1,0 +1,15 @@
+---
+---
+
+@import "{{ site.theme }}";
+
+/* Wide pandas tables from rendered notebooks: scroll instead of overflowing */
+table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+img {
+  max-width: 100%;
+}
