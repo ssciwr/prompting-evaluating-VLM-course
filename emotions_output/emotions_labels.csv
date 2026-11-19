@@ -201,7 +201,7 @@ filename,emotion,subfolder
 775145.jpg,positive,folder1
 775183.jpg,positive,folder1
 775186.jpg,positive,folder1
-775190_01.jpg,positive,folder1
+775190_01.jpg,positive,folder2
 775238.jpg,positive,folder1
 775252_09.jpg,positive,folder1
 775260.jpg,positive,folder1
@@ -262,9 +262,9 @@ filename,emotion,subfolder
 509341.jpeg,positive,folder2
 509681.jpeg,positive,folder2
 512045.jpeg,positive,folder2
-512463.jpeg,positive,folder2
-512598.jpeg,positive,folder2
-514372.jpeg,positive,folder2
+512463.jpeg,negative,violent_1
+512598.jpeg,negative,violent_1
+514372.jpeg,negative,violent_1
 514621.jpeg,positive,folder2
 514623.jpeg,positive,folder2
 514625.jpeg,positive,folder2
@@ -275,11 +275,11 @@ filename,emotion,subfolder
 500228.jpeg,positive,neutral_vis_positive_text
 501521.jpeg,positive,neutral_vis_positive_text
 775030_01.jpg,positive,neutral_vis_positive_text
-775034_01.jpg,positive,neutral_vis_positive_text
+775034_01.jpg,neutral,folder2
 775133.jpg,positive,neutral_vis_positive_text
 790054.jpg,positive,neutral_vis_positive_text
 790342.jpg,positive,neutral_vis_positive_text
-790356_01.jpg,positive,neutral_vis_positive_text
+790356_01.jpg,negative,nonviolent_1
 815009.jpg,positive,neutral_vis_positive_text
 501371.jpeg,unclear,
 504603.jpeg,unclear,
