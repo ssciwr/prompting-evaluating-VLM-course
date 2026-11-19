@@ -1,2 +1,0 @@
-model,best_question,best_accuracy,not_significantly_worse,worst_question,worst_accuracy,mean_accuracy
-emotions_data_out,Q8,0.9113475177304965,"Q3, Q4, Q5, Q6, Q7, Q8",Q1,0.6879432624113475,0.8266843971631206
