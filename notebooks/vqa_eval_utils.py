@@ -31,15 +31,22 @@ from IPython.display import Markdown, display
 pd.set_option("display.width", 200)
 pd.set_option("display.max_colwidth", 200)
 
-ROOT = Path(__file__).resolve().parent.parent  # repository root
+ROOT = Path(__file__).resolve().parent.parent  # repository root (or the workshop folder)
+# Folders searched for the ground-truth and question files, in this order:
+#   <folder of IMAGE_DIR>/../ground_truth   (workshop folder: dataset_<name>/ next to ground_truth/)
+#   ROOT/ground_truth                        (notebooks in a folder next to ground_truth/)
+#   ROOT/<dataset>_output                    (this repository)
+# Set GROUND_TRUTH_DIR to use another folder first.
+GROUND_TRUTH_DIR = None
 
 # ---------------------------------------------------------------------------
 # 1. Datasets
 #
 # Each dataset describes:
-#   labels           ground-truth csv (column `filename` + label columns)
+#   folder           folder of the dataset in this repository (see GROUND_TRUTH_DIR for the search order)
+#   labels           ground-truth csv file name (column `filename` + label columns)
 #   label_column     column the expected answers are derived from
-#   questions        file with the questions (.txt with a python list, or .csv with a `prompt` column)
+#   questions        file name of the questions (.txt with a python list, or .csv with a `prompt` column)
 #   types            one question type per question; selects the normalisation rules (see NORMALISERS)
 #   styles           short description of each wording, used in the plot labels
 #   expected         {question type: {label value: expected answer}}; label values without an
@@ -58,9 +65,10 @@ ROOT = Path(__file__).resolve().parent.parent  # repository root
 # ---------------------------------------------------------------------------
 DATASETS = {
     "emotions": dict(
-        labels=ROOT / "emotions_output" / "emotions_labels.csv",
+        folder="emotions_output",
+        labels="emotions_labels.csv",
         label_column="emotion",
-        questions=ROOT / "emotions_output" / "emotions_questions16NOV26.txt",
+        questions="emotions_questions16NOV26.txt",
         types=["polarity", "polarity", "negative", "negative", "negative", "positive", "positive", "positive"],
         styles=["open", "constrained", "open", "constrained", "constrained+cues",
                 "open", "constrained", "constrained+cues"],
@@ -74,13 +82,15 @@ DATASETS = {
         subfolder_column="subfolder",
     ),
     "politicians": dict(
-        labels=ROOT / "politicians_output" / "politicians_labels.csv",
+        folder="politicians_output",
+        labels="politicians_labels.csv",
         label_column="politician",
-        questions=ROOT / "politicians_output" / "politicians_questions17NOV26.txt",
+        questions="politicians_questions17NOV26.txt",
         types=["politician", "politician", "politician", "named"],
         styles=["open", "constrained", "constrained+justify", "constrained"],
         expected={"politician": {"yes": "yes", "no": "no"}, "named": {"yes": "yes", "no": "no"}},
-        # Q4 asks for Trump / Zelenskyy / Putin: its expected answer comes from the image folder
+        # Q4 asks for Trump / Zelenskyy / Putin: its expected answer comes from the column
+        # trump_zelenskyy_putin of the ground truth or, if that is missing, from the image folder
         label_columns=["politician", "politician", "politician", "trump_zelenskyy_putin"],
         path_labels={"trump_zelenskyy_putin": "/putin trump zielinsky/"},
         group_rule=lambda lab: np.select(
@@ -90,9 +100,10 @@ DATASETS = {
         summary_questions=["Q1", "Q2", "Q3"],  # Q4 asks a different, imbalanced question
     ),
     "symbols": dict(
-        labels=ROOT / "symbols_output" / "symbol_labels.csv",
+        folder="symbols_output",
+        labels="symbol_labels.csv",
         label_column="human_nat_eu_symbol",
-        questions=ROOT / "symbols_output" / "symbols_questions16NOV26.txt",
+        questions="symbols_questions16NOV26.txt",
         types=["symbol"] * 4,
         styles=["open", "examples", "examples+partial", "partial+blended"],
         expected={"symbol": {"1": "yes", "0": "no"}},
@@ -106,6 +117,23 @@ DATASETS = {
 QIDS = []
 QMETA = pd.DataFrame(columns=["target", "style", "question", "label_col"])
 EXPECTED = {}
+
+
+def _find_file(name, folder, image_dir=None):
+    """First existing `name` in the ground-truth folders (see GROUND_TRUTH_DIR); the last candidate if none exists."""
+    dirs = [GROUND_TRUTH_DIR] if GROUND_TRUTH_DIR else []
+    if image_dir:
+        dirs.append(Path(image_dir).expanduser().resolve().parent / "ground_truth")
+    dirs += [ROOT / "ground_truth", ROOT / folder]
+    candidates = [Path(d).expanduser() / name for d in dirs]
+    return next((c for c in candidates if c.exists()), candidates[-1])
+
+
+def resolve_datasets(image_dir=None):
+    """DATASETS with the full paths of the ground-truth and question files."""
+    return {name: dict(cfg, labels=_find_file(cfg["labels"], cfg["folder"], image_dir),
+                       questions=_find_file(cfg["questions"], cfg["folder"], image_dir))
+            for name, cfg in DATASETS.items()}
 
 
 def read_questions(path, n):
@@ -208,12 +236,16 @@ def _read_answers(raw, path):
     return frames
 
 
-def detect_dataset(filenames):
+def detect_dataset(filenames, datasets=None):
     """The dataset whose ground truth contains the largest share of the given image file names."""
+    datasets = datasets or resolve_datasets()
     filenames = set(filenames)
     share = {name: len(filenames & set(pd.read_csv(cfg["labels"], encoding="utf-8-sig")["filename"]
                                        .astype(str).str.strip().map(os.path.basename))) / len(filenames)
-             for name, cfg in DATASETS.items() if Path(cfg["labels"]).exists()}
+             for name, cfg in datasets.items() if Path(cfg["labels"]).exists()}
+    assert share, ("no ground-truth file found; searched for "
+                   + ", ".join(str(cfg["labels"]) for cfg in datasets.values())
+                   + " (set U.GROUND_TRUTH_DIR to the folder with the label csv files)")
     best = max(share, key=share.get)
     assert share[best] >= 0.5, (f"the result images do not match any known dataset (share found in the ground "
                                 f"truth: {share}); add your dataset to DATASETS in vqa_eval_utils.py")
@@ -228,18 +260,20 @@ def load_ground_truth(cfg, results, images):
     lab["label"] = lab[cfg["label_column"]].astype("string").str.strip()
     # Folder-based labels (politicians Q4) are read from the image path as written in the result file and
     # from the path in IMAGE_DIR (flat folders are fine if the other one has the folders).
-    # A column of the same name in the ground truth wins.
+    # A column of the same name in the ground truth wins (and is needed with flat folders).
     res_path = lab["filename"].map(results.drop_duplicates("filename").set_index("filename")["source_path"]
                                    .astype(str)).fillna("")
     img_path = lab["filename"].map(lambda f: images[f].as_posix() if f in images else "")
     p = res_path + "|" + img_path
 
-    def has(text):
+    def path_label(col, text):
         hit = p.str.contains(text, regex=False)
-        if not hit.any():
-            print(f"WARNING: no image path contains {text!r}, so all images get 'no' for this label. "
-                  f"With flat folders, add the column to {cfg['labels'].name} instead.")
-        return hit
+        if hit.any():
+            return np.where(hit, "yes", "no")
+        print(f"WARNING: the ground truth has no column {col!r} and no image path contains {text!r}, "
+              f"so the questions that use {col!r} are not scored. "
+              f"With flat folders, add the column to {cfg['labels'].name}.")
+        return np.nan
 
     sub = cfg.get("subfolder_column")
     if sub:
@@ -249,7 +283,7 @@ def load_ground_truth(cfg, results, images):
         lab["subfolder"] = max(folders, key=lambda f: f.nunique())
     for col, text in cfg.get("path_labels", {}).items():
         if col not in lab.columns:
-            lab[col] = np.where(has(text), "yes", "no")
+            lab[col] = path_label(col, text)
     if cfg.get("group_rule"):
         lab["group"] = cfg["group_rule"](lab)
     else:
@@ -268,8 +302,9 @@ def load(results, image_dir, output_name):
     """
     files = _expand(results)
     raws = {f: pd.read_csv(f, encoding="utf-8-sig") for f in files}
-    dataset = detect_dataset(set().union(*(r["filename"].map(os.path.basename) for r in raws.values())))
-    cfg = DATASETS[dataset]
+    datasets = resolve_datasets(image_dir)
+    dataset = detect_dataset(set().union(*(r["filename"].map(os.path.basename) for r in raws.values())), datasets)
+    cfg = datasets[dataset]
     setup_questions(read_questions(cfg["questions"], len(cfg["types"])), cfg["types"], cfg["expected"],
                     cfg.get("styles"), cfg.get("label_columns"))
 
