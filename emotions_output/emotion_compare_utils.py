@@ -1,8 +1,8 @@
-"""Shared helpers for comparing annotated emotion labels with VLM answers.
+"""Shared helpers for comparing annotated labels with VLM answers.
 
-Used by
-* compare_emotions_data_out.ipynb  (single output file)
-* compare_emotions_models.ipynb    (four model files)
+Used by the question-accuracy notebooks of the emotions dataset (emotions_output/) and the
+politicians dataset (politicians_output/). The emotion setup is the default; another dataset
+calls ``set_questions(load_questions(path, targets=..., styles=...))`` first.
 
 Every VLM table is first converted to a wide table ``filename, model, Q1..Q8``;
 all further functions work on that table (or the long table derived from it), so they
@@ -27,34 +27,58 @@ TARGETS = ["polarity", "polarity", "negative", "negative", "negative", "positive
 STYLES = ["open", "constrained", "open", "constrained", "constrained+cues", "open", "constrained", "constrained+cues"]
 
 
-def load_questions(path):
-    """questions.txt contains a python list assignment -> parse it safely."""
+def load_questions(path, targets=TARGETS, styles=STYLES, label_cols=None):
+    """Read a question file (a python list assignment) into the question table.
+
+    targets    : what each question asks about; selects the normalisation rules and the truth mapping
+                 (emotions: polarity / negative / positive; politicians: politician / named)
+    styles     : how each question is worded (open / constrained / ...), only used for labels in plots
+    label_cols : label column the expected answer is derived from (default: "label" for every question)
+    """
     txt = Path(path).read_text()
-    questions = ast.literal_eval(txt[txt.index("["):])
-    assert len(questions) == len(QIDS), f"expected {len(QIDS)} questions, got {len(questions)}"
-    return pd.DataFrame({"qid": QIDS, "target": TARGETS, "style": STYLES, "question": questions}).set_index("qid")
+    questions = ast.literal_eval(txt[txt.index("["):txt.rindex("]") + 1])
+    assert len(questions) == len(targets) == len(styles), \
+        f"{len(questions)} questions but {len(targets)} targets / {len(styles)} styles"
+    qids = [f"Q{i}" for i in range(1, len(questions) + 1)]
+    return pd.DataFrame({"qid": qids, "target": list(targets), "style": list(styles), "question": questions,
+                         "label_col": list(label_cols) if label_cols else ["label"] * len(qids)}).set_index("qid")
 
 
-QMETA = pd.DataFrame({"qid": QIDS, "target": TARGETS, "style": STYLES}).set_index("qid")
+QMETA = pd.DataFrame({"qid": QIDS, "target": TARGETS, "style": STYLES, "label_col": "label"}).set_index("qid")
+
+
+def set_questions(qmeta):
+    """Make `qmeta` the active question set for all functions of this module."""
+    global QIDS, QMETA
+    QMETA = qmeta
+    QIDS = list(qmeta.index)
+    return qmeta
+
+
+SHORT = {"polarity": "pol", "negative": "neg", "positive": "pos", "politician": "politician", "named": "T/Z/P",
+         "symbol": "symbol"}
 
 
 def qlabel(q):
-    return f"{q}\n{QMETA.loc[q, 'target'][:3]}/{QMETA.loc[q, 'style']}"
+    return f"{q}\n{SHORT.get(QMETA.loc[q, 'target'], QMETA.loc[q, 'target'])}/{QMETA.loc[q, 'style']}"
 
 
 # ---------------------------------------------------------------------------
 # Loading
 # ---------------------------------------------------------------------------
-def load_labels(path):
+def load_labels(path, label_col="emotion"):
+    """Label table with a generic `label` column (the original column is kept as well)."""
     lab = pd.read_csv(path)
     lab["filename"] = lab["filename"].str.strip()
-    lab["subfolder"] = lab["subfolder"].fillna("(none)")
+    lab["label"] = lab[label_col].astype(str).str.strip()
+    lab["subfolder"] = lab["subfolder"].fillna("(none)") if "subfolder" in lab.columns else "(none)"
     assert not lab["filename"].duplicated().any(), "duplicate filenames in labels"
     return lab
 
 
-def parse_vqa_list(s, n=len(QIDS)):
-    """Return a list of length n; entries are None when the answer is missing/empty."""
+def parse_vqa_list(s, n=None):
+    """Return a list of length n (default: number of questions); entries are None when the answer is missing/empty."""
+    n = n or len(QIDS)
     try:
         lst = ast.literal_eval(s) if isinstance(s, str) else []
     except (ValueError, SyntaxError):
@@ -66,7 +90,7 @@ def parse_vqa_list(s, n=len(QIDS)):
 def load_vqa(path, model_name=None):
     """Wide table: filename, model, Q1..Q8 (raw answers, None = missing)."""
     raw = pd.read_csv(path)
-    out = pd.DataFrame({"filename": raw["filename"].map(os.path.basename)})
+    out = pd.DataFrame({"filename": raw["filename"].map(os.path.basename), "source_path": raw["filename"]})
     if "model" in raw.columns and model_name is None:
         out["model"] = raw["model"].values
     else:
@@ -74,6 +98,41 @@ def load_vqa(path, model_name=None):
     answers = raw["vqa"].map(parse_vqa_list)
     for i, q in enumerate(QIDS):
         out[q] = answers.map(lambda l, i=i: l[i])
+    assert not out.duplicated(["model", "filename"]).any(), f"duplicate filenames in {path}"
+    return out
+
+
+def load_vqa_wide(path, model_columns=None):
+    """Wide result file with one column per model (each cell = list of answers) -> same format as load_vqa."""
+    raw = pd.read_csv(path)
+    model_columns = model_columns or [c for c in raw.columns if c != "filename"]
+    frames = []
+    for m in model_columns:
+        out = pd.DataFrame({"filename": raw["filename"].map(os.path.basename), "source_path": raw["filename"], "model": m})
+        answers = raw[m].map(parse_vqa_list)
+        for i, q in enumerate(QIDS):
+            out[q] = answers.map(lambda l, i=i: l[i])
+        frames.append(out)
+    out = pd.concat(frames, ignore_index=True)
+    assert not out.duplicated(["model", "filename"]).any(), f"duplicate filenames in {path}"
+    return out
+
+
+def load_coded_wide(path, model_keys):
+    """Pre-coded result table (symbols package: columns <key>__q<i>_raw and <key>__q<i>_code).
+
+    model_keys: {column key: model name}. Returns the load_vqa format plus Qx_code columns, which
+    `normalise` uses instead of parsing the raw text (codes: 1 = yes, 0 = no, 9 = dk, 8 = unclear).
+    """
+    raw = pd.read_csv(path, encoding="utf-8-sig")
+    frames = []
+    for key, name in model_keys.items():
+        out = pd.DataFrame({"filename": raw["filename"].map(os.path.basename), "model": name})
+        for i, q in enumerate(QIDS, start=1):
+            out[q] = raw[f"{key}__q{i}_raw"].where(raw[f"{key}__q{i}_raw"].notna(), None)
+            out[q + "_code"] = raw[f"{key}__q{i}_code"]
+        frames.append(out)
+    out = pd.concat(frames, ignore_index=True)
     assert not out.duplicated(["model", "filename"]).any(), f"duplicate filenames in {path}"
     return out
 
@@ -252,16 +311,94 @@ def norm_yesno(s, target):
     return "unparsed", "unparsed"
 
 
-def normalise(df, qmeta=QMETA):
+def normalise(df, qmeta=None):
     """Add Qx_norm and Qx_rule columns."""
+    qmeta = QMETA if qmeta is None else qmeta
     out = df.copy()
-    for q in QIDS:
-        target = qmeta.loc[q, "target"]
-        f = norm_polarity if target == "polarity" else (lambda s, t=target: norm_yesno(s, t))
-        res = out[q].map(f)
+    for q in qmeta.index:
+        if q + "_code" in out.columns:  # answers already coded (e.g. symbols package incl. human review)
+            out[q + "_norm"] = out[q + "_code"].map(CODE_MAP).fillna("unparsed")
+            out[q + "_rule"] = "package_code"
+            continue
+        res = out[q].map(NORMALISERS[qmeta.loc[q, "target"]])
         out[q + "_norm"] = res.map(lambda r: r[0])
         out[q + "_rule"] = res.map(lambda r: r[1])
     return out
+
+
+# ---------------------------------------------------------------------------
+# Politicians dataset: "Is there a politician in the picture?" (target 'politician') and
+# "Is any of Trump / Zelenskyy / Putin in the picture?" (target 'named')
+# ---------------------------------------------------------------------------
+POLITICIAN_WORDS = (r"politicians?|political (figure|leader)s?|president|prime minister|minister|chancellor|senator"
+                    r"|member of (the )?(european )?parliament|\bmp\b|mep|mayor|head of (state|government)"
+                    r"|statesman|congress(wo)?man|governor|party leader|lawmaker")
+NON_POLITICIAN_WORDS = (r"coach|footballer|football (player|manager)|player|athlete|actor|actress|singer|musician"
+                        r"|journalist|news anchor|anchor|presenter|reporter|officer|soldier|celebrity|businessman"
+                        r"|businesswoman|entrepreneur|director|artist|model|influencer|doctor|scientist")
+POL_DK = re.compile(
+    r"^i (don'?t|do not) know|i (can'?t|cannot|am unable to|'m unable to|am not able to) (identify|determine|tell|say|recogni)"
+    r"|(not|isn'?t) possible to (definitively |reliably |clearly |accurately )?(determine|identify|tell|say)|cannot (definitively |reliably |accurately )?(say|determine|identify|tell)"
+    r"|not (clear|enough|sufficient)[^.]{0,30}(identify|determine)|does not provide (enough|sufficient)"
+    r"|difficult to (determine|identify|say|tell)|unable to (determine|identify)|without (more |additional )?(context|information)")
+NAMED_WORDS = r"trump|zelens\w*|zelenskyy|selenskyj|putin"
+
+
+def _norm_yes_no_text(s, own_words, other_words, dk_re, none_of_listed=False):
+    if _isna(s):
+        return "missing", "missing"
+    c = _clean(s)
+    if c in YESNO_CATS:
+        return c, "exact"
+    if none_of_listed and re.search(r"none of the (mentioned|listed|following|named|three)", c):
+        return "no", "kw_none_of_listed"
+    w = _first_word(c)
+    if w in YESNO_CATS:
+        return w, "first"
+    a = _explicit_answer(c)
+    if a in YESNO_CATS:
+        return a, "answer_is"
+    if re.search(r"\bhighly unlikely\b|\bunlikely that there is\b", c):
+        return "no", "kw_negated"
+    if dk_re.search(c):  # hedging first: "it is not possible to determine if there is a politician" = dk, not no
+        return "dk", "kw_dk"
+    if re.search(rf"{NEGATOR}[^.;]{{0,40}}?\b({own_words})\b", c):
+        return "no", "kw_negated"
+    if re.search(rf"\b({own_words})\b", c):
+        return "yes", "kw_affirm"
+    if other_words and re.search(rf"\b({other_words})\b", c):
+        return "no", "kw_opposite"
+    return "unparsed", "unparsed"
+
+
+def norm_politician(s):
+    """'Is there a politician in the picture?' -> yes | no | dk | unparsed | missing."""
+    return _norm_yes_no_text(s, POLITICIAN_WORDS, NON_POLITICIAN_WORDS, POL_DK)
+
+
+def norm_named(s):
+    """'Is Trump / Zelenskyy / Putin in the picture?' -> yes | no | dk | unparsed | missing."""
+    return _norm_yes_no_text(s, NAMED_WORDS, None, POL_DK, none_of_listed=True)
+
+
+# Symbols dataset: "Does the picture depict a national or EU symbol?" (target 'symbol')
+SYMBOL_WORDS = r"flags?|emblems?|coat of arms|national symbols?|eu symbols?|european union symbols?"
+CODE_MAP = {1: "yes", 0: "no", 9: "dk", 8: "unclear"}  # codes of the symbols reproducible package
+
+
+def norm_symbol(s):
+    """Fallback text rule for symbol questions (normally the package codes are used)."""
+    return _norm_yes_no_text(s, SYMBOL_WORDS, None, POL_DK)
+
+
+NORMALISERS = {
+    "symbol": norm_symbol,
+    "polarity": norm_polarity,
+    "negative": lambda s: norm_yesno(s, "negative"),
+    "positive": lambda s: norm_yesno(s, "positive"),
+    "politician": norm_politician,
+    "named": norm_named,
+}
 
 
 def rule_counts(df):
@@ -300,25 +437,31 @@ TRUTH = {
     "polarity": {"positive": "positive", "negative": "negative", "neutral": "none"},
     "negative": {"positive": "no", "negative": "yes", "neutral": "no"},
     "positive": {"positive": "yes", "negative": "no", "neutral": "no"},
+    "politician": {"yes": "yes", "no": "no"},
+    "named": {"yes": "yes", "no": "no"},
+    "symbol": {"1": "yes", "0": "no"},
 }
 LABEL_ORDER = ["negative", "neutral", "positive", "unclear"]
 
 
-def _long_part(df, qid, target, style, pred_col, raw_col=None):
-    part = df[["model", "filename", "emotion", "subfolder"]].copy()
+def _long_part(df, qid, target, style, pred_col, raw_col=None, label_col="label"):
+    keep = ["model", "filename", "label", "subfolder"] + [c for c in ("emotion", "group") if c in df.columns]
+    part = df[keep].copy()
     part["qid"], part["target"], part["style"] = qid, target, style
     part["raw"] = df[raw_col] if raw_col else None
     part["pred"] = df[pred_col]
-    part["truth"] = df["emotion"].map(TRUTH[target])  # NaN for 'unclear'
+    part["truth"] = df[label_col].map(TRUTH[target])  # NaN for labels without an expected answer ('unclear')
     part["scored"] = part["truth"].notna() & (part["pred"] != "missing")
     part["correct"] = np.where(part["scored"], part["pred"] == part["truth"], np.nan)
     return part
 
 
-def to_long(df, qmeta=QMETA):
+def to_long(df, qmeta=None):
     """One row per model x image x question."""
-    return pd.concat([_long_part(df, q, qmeta.loc[q, "target"], qmeta.loc[q, "style"], q + "_norm", q)
-                      for q in QIDS], ignore_index=True)
+    qmeta = QMETA if qmeta is None else qmeta
+    return pd.concat([_long_part(df, q, qmeta.loc[q, "target"], qmeta.loc[q, "style"], q + "_norm", q,
+                                 qmeta.loc[q, "label_col"] if "label_col" in qmeta.columns else "label")
+                      for q in qmeta.index], ignore_index=True)
 
 
 # ---------------------------------------------------------------------------
@@ -586,3 +729,159 @@ def plot_agreement(df, model, fname=None):
 
 def safe_name(s):
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", s)
+
+
+# ---------------------------------------------------------------------------
+# Simple question-accuracy analysis (one criterion: accuracy, DK = wrong)
+# ---------------------------------------------------------------------------
+def wilson_ci(k, n, z=1.96):
+    """95% Wilson confidence interval for a proportion k/n."""
+    if n == 0:
+        return np.nan, np.nan
+    p = k / n
+    d = 1 + z ** 2 / n
+    c = (p + z ** 2 / (2 * n)) / d
+    h = z * math.sqrt(p * (1 - p) / n + z ** 2 / (4 * n ** 2)) / d
+    return c - h, c + h
+
+
+def accuracy_table(long, by=("model", "qid")):
+    """n, correct, accuracy with Wilson CI, and DK share for each group (scored rows only)."""
+    rows = []
+    for key, g in long[long.scored].groupby(list(by), sort=False):
+        n, k = len(g), int(g.correct.sum())
+        lo, hi = wilson_ci(k, n)
+        r = dict(zip(by, key if isinstance(key, tuple) else (key,)))
+        r.update(n=n, correct=k, accuracy=k / n, ci_low=lo, ci_high=hi, dk_share=float((g.pred == "dk").mean()))
+        rows.append(r)
+    return pd.DataFrame(rows)
+
+
+def pairwise_question_tests(long, model):
+    """Exact McNemar test for every pair of questions of one model (same images), Holm-corrected."""
+    w = long[(long.model == model) & long.scored].pivot(index="filename", columns="qid", values="correct")
+    qids = [q for q in QIDS if q in w.columns]
+    rows = []
+    for i, a in enumerate(qids):
+        for b in qids[i + 1:]:
+            d = w[[a, b]].dropna().astype(bool)
+            only_a, only_b = int((d[a] & ~d[b]).sum()), int((~d[a] & d[b]).sum())
+            rows.append({"model": model, "q_a": a, "q_b": b, "n": len(d), "acc_a": d[a].mean(), "acc_b": d[b].mean(),
+                         "only_a_correct": only_a, "only_b_correct": only_b, "p_value": mcnemar_exact(only_a, only_b)})
+    t = pd.DataFrame(rows)
+    t["p_holm"] = holm(t.p_value)
+    t["significant"] = t.p_holm < 0.05
+    return t
+
+
+def plot_pairwise(tests, ax, title=""):
+    """Heatmap of accuracy differences (row question minus column question); * = significant after Holm."""
+    mat = pd.DataFrame(np.nan, index=QIDS, columns=QIDS)
+    sig = pd.DataFrame(False, index=QIDS, columns=QIDS)
+    for r in tests.itertuples():
+        mat.loc[r.q_a, r.q_b], mat.loc[r.q_b, r.q_a] = r.acc_a - r.acc_b, r.acc_b - r.acc_a
+        sig.loc[r.q_a, r.q_b] = sig.loc[r.q_b, r.q_a] = r.significant
+    lim = max(0.1, np.nanmax(np.abs(mat.to_numpy())))
+    ax.imshow(mat.to_numpy(dtype=float), cmap="RdBu", vmin=-lim, vmax=lim)
+    for (i, j), v in np.ndenumerate(mat.to_numpy(dtype=float)):
+        if not np.isnan(v):
+            ax.text(j, i, f"{v:+.2f}" + ("*" if sig.iat[i, j] else ""), ha="center", va="center", fontsize=7)
+    ax.set_xticks(range(len(QIDS)), QIDS)
+    ax.set_yticks(range(len(QIDS)), [qlabel(q).replace("\n", " ") for q in QIDS], fontsize=8)
+    ax.set_title(title, fontsize=9)
+
+
+# ---------------------------------------------------------------------------
+# Difficult images
+# ---------------------------------------------------------------------------
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
+
+
+def image_index(*image_dirs):
+    """Map file name -> path for all images below the given folders (the first folder that exists wins)."""
+    for d in image_dirs:
+        d = Path(d).expanduser()
+        if d.is_dir():
+            return {p.name: p for p in d.rglob("*") if p.suffix.lower() in IMAGE_EXTENSIONS}
+    return {}
+
+
+def image_difficulty(long):
+    """Per image: number of scored answers, number wrong and share wrong (over all models and questions in `long`)."""
+    s = long[long.scored]
+    keys = ["filename", "label", "subfolder"] + (["group"] if "group" in s.columns else [])
+    d = (s.groupby(keys)["correct"]
+         .agg(n_answers="count", n_correct="sum").reset_index())
+    d["n_wrong"] = d.n_answers - d.n_correct
+    d["share_wrong"] = d.n_wrong / d.n_answers
+    return d.drop(columns="n_correct").sort_values(["share_wrong", "filename"], ascending=[False, True])
+
+
+def difficulty_by_group(diff, by="subfolder", hard_threshold=0.5):
+    g = diff.groupby(by)
+    return pd.DataFrame({"images": g.size(), "mean_share_wrong": g.share_wrong.mean(),
+                         f"hard_images (≥{hard_threshold:.0%} wrong)": g.share_wrong.apply(lambda x: int((x >= hard_threshold).sum()))}
+                        ).sort_values("mean_share_wrong", ascending=False)
+
+
+def pick_examples(diff, per_label=2, by="label", order=None):
+    """The `per_label` hardest images of each value of `by` (e.g. each label)."""
+    order = order or sorted(diff[by].unique())
+    return pd.concat([diff[diff[by] == e].head(per_label) for e in order])
+
+
+def _load_thumbnail(path, size=700):
+    from PIL import Image
+    img = Image.open(path)
+    img.thumbnail((size, size))
+    return img.convert("RGB")
+
+
+def plot_image_evaluation(filename, long, images, title=""):
+    """Image (left) and a grid of the evaluation (right): one row per model, one column per question.
+    Cell = normalised answer; green = correct, red = wrong (DK counts as wrong), grey = missing / not scored."""
+    g = long[long.filename == filename]
+    models = list(dict.fromkeys(g.model))
+    first = g.iloc[0]
+    expected = g.drop_duplicates("qid").set_index("qid").truth.reindex(QIDS)
+
+    fig, (ax_img, ax_tab) = plt.subplots(1, 2, figsize=(16, 4.2), gridspec_kw={"width_ratios": [1, 1.6]})
+    path = images.get(filename)
+    if path is not None:
+        ax_img.imshow(_load_thumbnail(path))
+    else:
+        ax_img.text(0.5, 0.5, "image not found", ha="center", va="center")
+    ax_img.axis("off")
+    ax_img.set_title(f"{filename}\nlabel: {first.label}  |  {first.get('group', first.subfolder)}", fontsize=9)
+
+    rows = ["expected"] + models
+    color = np.full((len(rows), len(QIDS)), 0.5)  # 0 = wrong, 1 = correct, 0.5 = neutral
+    text = [[("" if pd.isna(expected[q]) else expected[q]) for q in QIDS]]
+    for i, m in enumerate(models, start=1):
+        r = g[g.model == m].set_index("qid").reindex(QIDS)
+        text.append(list(r.pred.fillna("")))
+        for j, q in enumerate(QIDS):
+            if r.scored.get(q, False):
+                color[i, j] = float(r.correct[q])
+    from matplotlib.colors import ListedColormap
+    ax_tab.imshow(color, cmap=ListedColormap(["#f4a6a6", "#dddddd", "#a8dba8"]), vmin=0, vmax=1, aspect="auto")
+    for i in range(len(rows)):
+        for j in range(len(QIDS)):
+            ax_tab.text(j, i, text[i][j], ha="center", va="center", fontsize=8,
+                        fontweight="bold" if i == 0 else "normal")
+    ax_tab.set_xticks(range(len(QIDS)), [qlabel(q) for q in QIDS], fontsize=7)
+    ax_tab.set_yticks(range(len(rows)), rows, fontsize=8)
+    ax_tab.axhline(0.5, color="black", lw=1)
+    n_s = g.scored.sum()
+    ax_tab.set_title(f"{title}  wrong: {int(n_s - g.correct.sum())} of {int(n_s)} answers "
+                     "(green = correct, red = wrong)", fontsize=9)
+    fig.tight_layout()
+    return fig
+
+
+def wrong_answers(filename, long, max_chars=160):
+    """Raw answers behind the wrong evaluations of one image."""
+    g = long[(long.filename == filename) & long.scored & (long.correct == 0)]
+    out = g[["model", "qid", "truth", "pred", "raw"]].copy()
+    out["raw"] = out.raw.astype(str).str.replace("\n", " ").str.slice(0, max_chars)
+    return out.reset_index(drop=True)

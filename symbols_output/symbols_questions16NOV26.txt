@@ -1,0 +1,5 @@
+"Does the picture depict a national or EU symbol?",
+"Does the picture depict a national or EU symbol, such as a national emblem, a national flag, or the EU flag? Do not guess.",
+"Does the picture depict a national or EU symbol, such as a national emblem, a national flag, or the EU flag? Take into account both instances when the symbol, such as the flag or the emblem, appears in full and when only parts of it are visible. Do not guess.", 
+"Does the picture depict any national or EU symbol, either in part or in full? Consider the situation that the symbol might be blended in the image, but do not guess.",
+ 

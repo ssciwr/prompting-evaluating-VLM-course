@@ -1,0 +1,13 @@
+model,group,Q1,Q2,Q3,Q4,Q5,Q6,Q7,Q8
+gemini-2.5-flash,negative,0.82,0.83,0.83,0.83,0.95,1.0,0.95,1.0
+gemini-2.5-flash,neutral,0.92,0.74,0.91,0.73,0.77,0.98,0.53,0.7
+gemini-2.5-flash,positive,0.82,0.83,0.98,0.95,0.94,0.82,0.83,0.83
+gpt-4o-mini,negative,0.96,0.89,0.91,0.85,0.94,0.98,0.89,0.94
+gpt-4o-mini,neutral,0.59,0.17,0.74,0.39,0.53,0.71,0.18,0.38
+gpt-4o-mini,positive,0.84,0.77,0.98,0.86,0.92,0.88,0.83,0.88
+llama-4-maverick,negative,0.89,0.81,0.85,0.87,0.83,0.95,0.97,1.0
+llama-4-maverick,neutral,0.55,0.59,0.89,0.82,0.82,0.97,0.91,0.97
+llama-4-maverick,positive,0.82,0.86,0.97,0.95,0.95,0.84,0.89,0.84
+qwen2.5-vl-72b-instruct,negative,0.82,0.76,0.68,0.38,0.56,0.99,0.24,0.45
+qwen2.5-vl-72b-instruct,neutral,0.88,0.61,0.98,0.0,0.08,0.97,0.0,0.0
+qwen2.5-vl-72b-instruct,positive,0.85,0.82,0.99,0.56,0.7,0.82,0.76,0.72

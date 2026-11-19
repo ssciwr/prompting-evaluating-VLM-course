@@ -1,0 +1,47 @@
+model,qid,raw,normalised,rule,n
+emotions_data_out,Q1,"The image does not contain any explicit emotional content. It appears to be a professional portrait of a man in formal attire, with text providing information about financial transactions.",none,kw_none,1
+emotions_data_out,Q1,"The image does not contain any explicit emotional content. It appears to be a formal press conference with a man speaking into microphones, likely addressing the media. The context suggests a political or official event, but the image itself does not convey strong positive or negative emotions.",none,kw_none,1
+emotions_data_out,Q1,The image does not contain any explicit positive or negative emotional content. It is a straightforward photograph of an urban street scene with no visible emotions or expressions.,none,kw_none,1
+emotions_data_out,Q1,"The image does not contain any explicit emotional content. It is a weather map showing the forecast for Switzerland on May 28, 2024. The map includes various locations with their respective temperatures and weather conditions, but it does not convey any emotions.",none,kw_none,1
+emotions_data_out,Q1,"The picture shows a somber and respectful emotional content, as it depicts a funeral scene with people gathered around a casket in a cemetery.",negative,kw_polarity,1
+emotions_data_out,Q1,"The image depicts a tense situation where two individuals in military-style attire appear to be questioning or arresting a person dressed in civilian clothing. The presence of firearms and the serious demeanor of the individuals suggest a potentially dangerous or confrontational scenario. There is no clear indication of positive emotional content in this image; rather, it conveys a sense of tension and potential conflict.",negative,kw_polarity,1
+emotions_data_out,Q1,"The picture shows positive emotional content, as the couple is cutting a cake together and smiling, indicating happiness and celebration.",positive,kw_polarity,1
+emotions_data_out,Q1,"The picture shows a positive emotional content as it depicts a group of people engaged in a soccer training session, which is typically associated with teamwork and sportsmanship. The atmosphere appears to be focused and energetic, suggesting a sense of camaraderie and dedication among the participants.",positive,kw_polarity,1
+emotions_data_out,Q1,"The picture shows a positive emotional content as it depicts emergency services responding to a flood situation, which is typically associated with helping and saving lives during adverse weather conditions.",positive,kw_polarity,1
+emotions_data_out,Q1,"The picture shows a positive emotional content as it depicts a firefighter actively working to extinguish a fire, which is an essential and commendable action in emergency situations.",positive,kw_polarity,1
+emotions_data_out,Q3,"No, the picture does not show any negative emotional content.",no,first,2
+emotions_data_out,Q3,"No, the picture does not show any negative emotional content. The individuals appear to be enjoying a celebratory moment together.",no,first,1
+emotions_data_out,Q3,"No, the picture does not show any negative emotional content. The man appears to be smiling and is engaged in a positive activity, casting his vote.",no,first,1
+emotions_data_out,Q3,"No, the picture does not show any negative emotional content. The individuals appear to be participating in an activity with a neutral or positive demeanor.",no,first,1
+emotions_data_out,Q3,"No, the picture does not show any negative emotional content. It depicts a routine activity of applying toothpaste to a toothbrush, which is neutral in terms of emotion.",no,first,1
+emotions_data_out,Q3,"No, the picture does not show any negative emotional content. It depicts an airplane flying in the sky with a beautiful sunset background, which is generally associated with positive emotions such as tranquility and beauty.",no,first,1
+emotions_data_out,Q3,"No, the picture does not show any negative emotional content. It depicts a firefighter operating a fire truck and releasing water from a hose, which is typically associated with firefighting activities and does not convey negative emotions.",no,first,1
+emotions_data_out,Q3,"No, the picture does not show any negative emotional content. It depicts a peaceful urban street scene with no visible signs of distress or negativity.",no,first,1
+emotions_data_out,Q3,"No, the picture does not show any negative emotional content. It is a weather forecast map with no visible emotional indicators.",no,first,1
+emotions_data_out,Q3,"Yes, the picture shows negative emotional content.",yes,first,2
+emotions_data_out,Q3,"Yes, the image shows negative emotional content related to vandalism and destruction.",yes,first,1
+emotions_data_out,Q3,"Yes, the image shows negative emotional content due to the broken glass and the context of vandalism.",yes,first,1
+emotions_data_out,Q3,"Yes, the image shows a negative emotional content.",yes,first,1
+emotions_data_out,Q3,"Yes, the text suggests a negative situation involving legal issues and potential pressure on someone named Hajdú Péter.",yes,first,1
+emotions_data_out,Q3,"Yes, the text ""ORSZÁG, – AZ IS!"" suggests frustration or anger.",yes,first,1
+emotions_data_out,Q3,"Yes, the image contains negative emotional content.",yes,first,1
+emotions_data_out,Q3,"Yes, it shows a sense of urgency or concern.",yes,first,1
+emotions_data_out,Q3,"Yes, the text suggests frustration or disappointment.",yes,first,1
+emotions_data_out,Q3,"Yes, the text ""ORSZÁGJÁRÁSÁN,"" suggests a negative emotional context related to a trip or journey.",yes,first,1
+emotions_data_out,Q3,"Yes, the picture shows negative emotional content as it depicts a funeral scene with people gathered around a casket in a cemetery.",yes,first,1
+emotions_data_out,Q3,"Yes, the picture shows a negative emotional content.",yes,first,1
+emotions_data_out,Q3,"Yes, the picture shows negative emotional content due to the volcanic eruption and the resulting smoke and lava flow.",yes,first,1
+emotions_data_out,Q3,"Yes, it shows negative emotional content due to the hazardous working conditions and the presence of a landslide.",yes,first,1
+emotions_data_out,Q3,"Yes, it shows negative emotional content.",yes,first,1
+emotions_data_out,Q3,"Yes, it shows negative emotional content due to the destruction and smoke.",yes,first,1
+emotions_data_out,Q3,"Yes, the picture shows negative emotional content due to the aftermath of a disaster with people standing amidst debris and damaged buildings.",yes,first,1
+emotions_data_out,Q6,"No, the image does not convey any positive emotional content.",no,first,1
+emotions_data_out,Q6,"Yes, the picture shows positive emotional content.",yes,first,17
+emotions_data_out,Q6,"Yes, the image shows positive emotional content.",yes,first,1
+emotions_data_out,Q6,"Yes, the picture shows positive emotional content as the couple is cutting a cake together and smiling.",yes,first,1
+emotions_data_out,Q6,"Yes, the picture shows positive emotional content. The woman is smiling and appears to be happy while casting her vote.",yes,first,1
+emotions_data_out,Q6,"Yes, the picture shows positive emotional content. The man is smiling while casting his vote, indicating happiness or satisfaction with the process.",yes,first,1
+emotions_data_out,Q6,"Yes, the picture shows positive emotional content as it depicts two individuals shaking hands, which is typically associated with agreement or friendship.",yes,first,1
+emotions_data_out,Q6,"Yes, the picture shows positive emotional content as it depicts a soccer training session with players and coaches engaged in practice.",yes,first,1
+emotions_data_out,Q6,"Yes, the picture shows positive emotional content with the airplane flying in the sky during sunset.",yes,first,1
+emotions_data_out,Q6,"Yes, the picture shows positive emotional content with its serene and picturesque landscape.",yes,first,1
