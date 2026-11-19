@@ -60,7 +60,7 @@ DATASETS = {
     "emotions": dict(
         labels=ROOT / "emotions_output" / "emotions_labels.csv",
         label_column="emotion",
-        questions=ROOT / "emotions_output" / "questions.txt",
+        questions=ROOT / "emotions_output" / "emotions_questions16NOV26.txt",
         types=["polarity", "polarity", "negative", "negative", "negative", "positive", "positive", "positive"],
         styles=["open", "constrained", "open", "constrained", "constrained+cues",
                 "open", "constrained", "constrained+cues"],
@@ -76,7 +76,7 @@ DATASETS = {
     "politicians": dict(
         labels=ROOT / "politicians_output" / "politicians_labels.csv",
         label_column="politician",
-        questions=ROOT / "politicians_output" / "list_of_questions17NOV26.txt",
+        questions=ROOT / "politicians_output" / "politicians_questions17NOV26.txt",
         types=["politician", "politician", "politician", "named"],
         styles=["open", "constrained", "constrained+justify", "constrained"],
         expected={"politician": {"yes": "yes", "no": "no"}, "named": {"yes": "yes", "no": "no"}},
@@ -92,7 +92,7 @@ DATASETS = {
     "symbols": dict(
         labels=ROOT / "symbols_output" / "symbol_labels.csv",
         label_column="human_nat_eu_symbol",
-        questions=ROOT / "symbols_output" / "results" / "prompts.csv",
+        questions=ROOT / "symbols_output" / "symbols_questions16NOV26.txt",
         types=["symbol"] * 4,
         styles=["open", "examples", "examples+partial", "partial+blended"],
         expected={"symbol": {"1": "yes", "0": "no"}},
@@ -109,7 +109,8 @@ EXPECTED = {}
 
 
 def read_questions(path, n):
-    """Questions from a .txt file containing a python list, or from the `prompt` column of a .csv file.
+    """Questions from a .txt file (a python list, or quoted strings separated by commas without brackets),
+    or from the `prompt` column of a .csv file.
     Falls back to placeholders if the file is not there (the texts are only displayed)."""
     path = Path(path)
     if not path.exists():
@@ -117,7 +118,8 @@ def read_questions(path, n):
     if path.suffix.lower() == ".csv":
         return pd.read_csv(path)["prompt"].astype(str).tolist()
     txt = path.read_text()
-    return ast.literal_eval(txt[txt.index("["):txt.rindex("]") + 1])
+    txt = txt[txt.index("["):txt.rindex("]") + 1] if "[" in txt else f"[{txt}]"
+    return list(ast.literal_eval(txt))
 
 
 def setup_questions(questions, types, expected, styles=None, label_columns=None):
