@@ -1,6 +1,0 @@
-list_of_questions = [
-    "Is there a politician in the picture?",
-    "Is there a politician in the picture? Answer yes, no or dk. Don't guess.",
-    "Is there a politician in the picture? Answer yes, no, or dk. Briefly justify your answer and, if there is a politician, give the name. Don't guess.",
-    "Is any of the following politicians in the picture: Donald Trump, Volodymyr Zelenskyy or Vladimir Putin? Answer yes or no. If yes, give the name. Don't guess.",
-]  # add or replace with your own questions
