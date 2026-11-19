@@ -64,53 +64,65 @@ GROUND_TRUTH_DIR = None
 # The dataset of a result file is the one whose ground truth contains most of its images.
 # ---------------------------------------------------------------------------
 DATASETS = {
-    "emotions": dict(
-        folder="emotions_output",
-        labels="emotions_labels.csv",
-        label_column="emotion",
-        questions="emotions_questions16NOV26.txt",
-        types=["polarity", "polarity", "negative", "negative", "negative", "positive", "positive", "positive"],
-        styles=["open", "constrained", "open", "constrained", "constrained+cues",
-                "open", "constrained", "constrained+cues"],
-        expected={
+    "emotions": {
+        "folder": "emotions_output",
+        "labels": "emotions_labels.csv",
+        "label_column": "emotion",
+        "questions": "emotions_questions16NOV26.txt",
+        "types": ["polarity", "polarity", "negative", "negative", "negative", "positive", "positive", "positive"],
+        "styles": [
+            "open",
+            "constrained",
+            "open",
+            "constrained",
+            "constrained+cues",
+            "open",
+            "constrained",
+            "constrained+cues",
+        ],
+        "expected": {
             "polarity": {"positive": "positive", "negative": "negative", "neutral": "none"},
             "negative": {"positive": "no", "negative": "yes", "neutral": "no"},
             "positive": {"positive": "yes", "negative": "no", "neutral": "no"},
         },
-        group_column="emotion",
-        group_order=["negative", "neutral", "positive"],
-        subfolder_column="subfolder",
-    ),
-    "politicians": dict(
-        folder="politicians_output",
-        labels="politicians_labels.csv",
-        label_column="politician",
-        questions="politicians_questions17NOV26.txt",
-        types=["politician", "politician", "politician", "named"],
-        styles=["open", "constrained", "constrained+justify", "constrained"],
-        expected={"politician": {"yes": "yes", "no": "no"}, "named": {"yes": "yes", "no": "no"}},
+        "group_column": "emotion",
+        "group_order": ["negative", "neutral", "positive"],
+        "subfolder_column": "subfolder",
+    },
+    "politicians": {
+        "folder": "politicians_output",
+        "labels": "politicians_labels.csv",
+        "label_column": "politician",
+        "questions": "politicians_questions17NOV26.txt",
+        "types": ["politician", "politician", "politician", "named"],
+        "styles": ["open", "constrained", "constrained+justify", "constrained"],
         # Q4 asks for Trump / Zelenskyy / Putin: its expected answer comes from the column
-        # trump_zelenskyy_putin of the ground truth or, if that is missing, from the image folder
-        label_columns=["politician", "politician", "politician", "trump_zelenskyy_putin"],
-        path_labels={"trump_zelenskyy_putin": "/putin trump zielinsky/"},
-        group_rule=lambda lab: np.select(
-            [lab.trump_zelenskyy_putin == "yes", lab.politician == "yes"],
-            ["Trump/Zelenskyy/Putin", "other politician"], "non-politician"),
-        group_order=["Trump/Zelenskyy/Putin", "other politician", "non-politician"],
-        summary_questions=["Q1", "Q2", "Q3"],  # Q4 asks a different, imbalanced question
-    ),
-    "symbols": dict(
-        folder="symbols_output",
-        labels="symbol_labels.csv",
-        label_column="human_nat_eu_symbol",
-        questions="symbols_questions16NOV26.txt",
-        types=["symbol"] * 4,
-        styles=["open", "examples", "examples+partial", "partial+blended"],
-        expected={"symbol": {"1": "yes", "0": "no"}},
-        group_column="human_category",
-        group_order=["eu_flag", "other_national_or_eu_symbol", "no_symbol"],
-        subfolder_column="original_folder",
-    ),
+        # named_politician of the ground truth (none / trump / zelenskyy / putin)
+        "expected": {
+            "politician": {"yes": "yes", "no": "no"},
+            "named": {"none": "no", "trump": "yes", "zelenskyy": "yes", "putin": "yes"},
+        },
+        "label_columns": ["politician", "politician", "politician", "named_politician"],
+        "group_rule": lambda lab: np.select(
+            [lab.named_politician.isin(["trump", "zelenskyy", "putin"]), lab.politician == "yes"],
+            ["Trump/Zelenskyy/Putin", "other politician"],
+            "non-politician",
+        ),
+        "group_order": ["Trump/Zelenskyy/Putin", "other politician", "non-politician"],
+        "summary_questions": ["Q1", "Q2", "Q3"],  # Q4 asks a different, imbalanced question
+    },
+    "symbols": {
+        "folder": "symbols_output",
+        "labels": "symbol_labels.csv",
+        "label_column": "human_nat_eu_symbol",
+        "questions": "symbols_questions16NOV26.txt",
+        "types": ["symbol"] * 4,
+        "styles": ["open", "examples", "examples+partial", "partial+blended"],
+        "expected": {"symbol": {"1": "yes", "0": "no"}},
+        "group_column": "human_category",
+        "group_order": ["eu_flag", "other_national_or_eu_symbol", "no_symbol"],
+        "subfolder_column": "original_folder",
+    },
 }
 
 # Active question set (set by setup_questions)
@@ -131,9 +143,14 @@ def _find_file(name, folder, image_dir=None):
 
 def resolve_datasets(image_dir=None):
     """DATASETS with the full paths of the ground-truth and question files."""
-    return {name: dict(cfg, labels=_find_file(cfg["labels"], cfg["folder"], image_dir),
-                       questions=_find_file(cfg["questions"], cfg["folder"], image_dir))
-            for name, cfg in DATASETS.items()}
+    return {
+        name: dict(
+            cfg,
+            labels=_find_file(cfg["labels"], cfg["folder"], image_dir),
+            questions=_find_file(cfg["questions"], cfg["folder"], image_dir),
+        )
+        for name, cfg in DATASETS.items()
+    }
 
 
 def read_questions(path, n):
@@ -146,7 +163,7 @@ def read_questions(path, n):
     if path.suffix.lower() == ".csv":
         return pd.read_csv(path)["prompt"].astype(str).tolist()
     txt = path.read_text()
-    txt = txt[txt.index("["):txt.rindex("]") + 1] if "[" in txt else f"[{txt}]"
+    txt = txt[txt.index("[") : txt.rindex("]") + 1] if "[" in txt else f"[{txt}]"
     return list(ast.literal_eval(txt))
 
 
@@ -156,13 +173,15 @@ def setup_questions(questions, types, expected, styles=None, label_columns=None)
     n = len(questions)
     styles = list(styles) if styles else [""] * n
     label_columns = list(label_columns) if label_columns else ["label"] * n
-    assert len(types) == n == len(styles) == len(label_columns), \
+    assert len(types) == n == len(styles) == len(label_columns), (
         f"{n} questions, but {len(types)} types / {len(styles)} styles / {len(label_columns)} label columns"
+    )
     unknown = set(types) - set(NORMALISERS)
     assert not unknown, f"unknown question type(s) {unknown}; available: {list(NORMALISERS)}"
     QIDS = [f"Q{i}" for i in range(1, n + 1)]
-    QMETA = pd.DataFrame({"qid": QIDS, "target": list(types), "style": styles, "question": questions,
-                          "label_col": label_columns}).set_index("qid")
+    QMETA = pd.DataFrame(
+        {"qid": QIDS, "target": list(types), "style": styles, "question": questions, "label_col": label_columns}
+    ).set_index("qid")
     EXPECTED = {t: {str(k): v for k, v in m.items()} for t, m in expected.items()}
     return QMETA
 
@@ -197,9 +216,16 @@ def _detect_format(raw):
     keys = list(dict.fromkeys(m.group(1) for c in raw.columns if (m := re.match(r"(.+)__q\d+_code$", c))))
     if keys:
         return "coded", keys
-    cols = [c for c in raw.columns if c != "filename" and not c.startswith("Unnamed")
-            and raw[c].dropna().astype(str).str.lstrip().str.startswith("[").mean() > 0.5]
-    assert cols, f"cannot read the answers: no 'vqa' column, no coded columns and no list columns in {list(raw.columns)}"
+    cols = [
+        c
+        for c in raw.columns
+        if c != "filename"
+        and not c.startswith("Unnamed")
+        and raw[c].dropna().astype(str).str.lstrip().str.startswith("[").mean() > 0.5
+    ]
+    assert cols, (
+        f"cannot read the answers: no 'vqa' column, no coded columns and no list columns in {list(raw.columns)}"
+    )
     return "wide", cols
 
 
@@ -240,15 +266,30 @@ def detect_dataset(filenames, datasets=None):
     """The dataset whose ground truth contains the largest share of the given image file names."""
     datasets = datasets or resolve_datasets()
     filenames = set(filenames)
-    share = {name: len(filenames & set(pd.read_csv(cfg["labels"], encoding="utf-8-sig")["filename"]
-                                       .astype(str).str.strip().map(os.path.basename))) / len(filenames)
-             for name, cfg in datasets.items() if Path(cfg["labels"]).exists()}
-    assert share, ("no ground-truth file found; searched for "
-                   + ", ".join(str(cfg["labels"]) for cfg in datasets.values())
-                   + " (set U.GROUND_TRUTH_DIR to the folder with the label csv files)")
+    share = {
+        name: len(
+            filenames
+            & set(
+                pd.read_csv(cfg["labels"], encoding="utf-8-sig")["filename"]
+                .astype(str)
+                .str.strip()
+                .map(os.path.basename)
+            )
+        )
+        / len(filenames)
+        for name, cfg in datasets.items()
+        if Path(cfg["labels"]).exists()
+    }
+    assert share, (
+        "no ground-truth file found; searched for "
+        + ", ".join(str(cfg["labels"]) for cfg in datasets.values())
+        + " (set U.GROUND_TRUTH_DIR to the folder with the label csv files)"
+    )
     best = max(share, key=share.get)
-    assert share[best] >= 0.5, (f"the result images do not match any known dataset (share found in the ground "
-                                f"truth: {share}); add your dataset to DATASETS in vqa_eval_utils.py")
+    assert share[best] >= 0.5, (
+        f"the result images do not match any known dataset (share found in the ground "
+        f"truth: {share}); add your dataset to DATASETS in vqa_eval_utils.py"
+    )
     return best
 
 
@@ -258,11 +299,14 @@ def load_ground_truth(cfg, results, images):
     lab["filename"] = lab["filename"].astype(str).str.strip().map(os.path.basename)
     assert not lab["filename"].duplicated().any(), "duplicate file names in the ground truth"
     lab["label"] = lab[cfg["label_column"]].astype("string").str.strip()
-    # Folder-based labels (politicians Q4) are read from the image path as written in the result file and
+    # Folder-based labels (path_labels) are read from the image path as written in the result file and
     # from the path in IMAGE_DIR (flat folders are fine if the other one has the folders).
     # A column of the same name in the ground truth wins (and is needed with flat folders).
-    res_path = lab["filename"].map(results.drop_duplicates("filename").set_index("filename")["source_path"]
-                                   .astype(str)).fillna("")
+    res_path = (
+        lab["filename"]
+        .map(results.drop_duplicates("filename").set_index("filename")["source_path"].astype(str))
+        .fillna("")
+    )
     img_path = lab["filename"].map(lambda f: images[f].as_posix() if f in images else "")
     p = res_path + "|" + img_path
 
@@ -270,9 +314,11 @@ def load_ground_truth(cfg, results, images):
         hit = p.str.contains(text, regex=False)
         if hit.any():
             return np.where(hit, "yes", "no")
-        print(f"WARNING: the ground truth has no column {col!r} and no image path contains {text!r}, "
-              f"so the questions that use {col!r} are not scored. "
-              f"With flat folders, add the column to {cfg['labels'].name}.")
+        print(
+            f"WARNING: the ground truth has no column {col!r} and no image path contains {text!r}, "
+            f"so the questions that use {col!r} are not scored. "
+            f"With flat folders, add the column to {cfg['labels'].name}."
+        )
         return np.nan
 
     sub = cfg.get("subfolder_column")
@@ -305,11 +351,23 @@ def load(results, image_dir, output_name):
     datasets = resolve_datasets(image_dir)
     dataset = detect_dataset(set().union(*(r["filename"].map(os.path.basename) for r in raws.values())), datasets)
     cfg = datasets[dataset]
-    setup_questions(read_questions(cfg["questions"], len(cfg["types"])), cfg["types"], cfg["expected"],
-                    cfg.get("styles"), cfg.get("label_columns"))
+    setup_questions(
+        read_questions(cfg["questions"], len(cfg["types"])),
+        cfg["types"],
+        cfg["expected"],
+        cfg.get("styles"),
+        cfg.get("label_columns"),
+    )
 
     res = pd.concat([fr for f, raw in raws.items() for fr in _read_answers(raw, f)], ignore_index=True)
     res["model"] = res["model"].map(_short_model)
+    unanswered = [q for q in QIDS if res[q].isna().all()]
+    assert not unanswered, (
+        f"the {dataset} dataset has {len(QIDS)} questions, but no model answered {', '.join(unanswered)}: "
+        f"the result files seem to come from a different question set "
+        f"({len(QIDS) - len(unanswered)} answers per image instead of {len(QIDS)}). "
+        f"Run the {len(QIDS)} questions of {cfg['questions'].name}, or change the dataset description in DATASETS."
+    )
     dup = res.duplicated(["model", "filename"])
     assert not dup.any(), f"duplicate images for one model: {res[dup][['model', 'filename']].head().values.tolist()}"
 
@@ -319,8 +377,9 @@ def load(results, image_dir, output_name):
     models = list(dict.fromkeys(data.model))
 
     # with several models: score all models on the same images (those every model answered completely)
-    complete = data.assign(ok=data[QIDS].notna().all(axis=1)).groupby("filename").ok.all() \
-        & (data.groupby("filename").model.nunique() == len(models))
+    complete = data.assign(ok=data[QIDS].notna().all(axis=1)).groupby("filename").ok.all() & (
+        data.groupby("filename").model.nunique() == len(models)
+    )
     common = set(complete[complete].index) if len(models) > 1 else set(data.filename)
     long = to_long(data)
     long = long[long.filename.isin(common)].copy()
@@ -331,13 +390,24 @@ def load(results, image_dir, output_name):
 
     n_res = res.filename.nunique()
     print(f"dataset: {dataset}  |  models: {', '.join(models)}")
-    print(f"images: {n_res} in the results, {data.filename.nunique()} with ground truth, "
-          f"{len(set(images) & set(data.filename))} found in {image_dir}")
+    print(
+        f"images: {n_res} in the results, {data.filename.nunique()} with ground truth, "
+        f"{len(set(images) & set(data.filename))} found in {image_dir}"
+    )
     if len(models) > 1:
         print(f"images answered completely by all models (used for the comparison): {len(common)}")
     print(f"output folder: {out}")
-    return SimpleNamespace(dataset=dataset, cfg=cfg, models=models, data=data, long=long, truth=truth,
-                           images=images, out=out, n_dropped=data.filename.nunique() - len(common))
+    return SimpleNamespace(
+        dataset=dataset,
+        cfg=cfg,
+        models=models,
+        data=data,
+        long=long,
+        truth=truth,
+        images=images,
+        out=out,
+        n_dropped=data.filename.nunique() - len(common),
+    )
 
 
 def parse_vqa_list(s, n=None):
@@ -375,18 +445,23 @@ DK_PAT = re.compile(
     r"|(not|n'?t) (provide )?(enough|sufficient) (context|information)"
     r"|too (blurry|small|dark)"
     r"|unclear (if|whether)"
-    r"|(is|remains) subjective|depends on (the )?(individual|context|viewer)")
+    r"|(is|remains) subjective|depends on (the )?(individual|context|viewer)"
+)
 # "without (more) context" is hedging, not a negation of the emotion
 CONTEXT_HEDGE = re.compile(r"without (any |more |additional |further |the )?(context|information|visual cues)[^.;]*")
 
 # words that signal emotional polarity in free text
-NEG_WORDS = (r"negativ\w*|somber|sombre|sad\w*|tense|tension|conflict\w*|fear\w*|anger|angry|distress\w*"
-             r"|grief|danger\w*|chao\w*|destruct\w*|devastat\w*|violen\w*|frustrat\w*|concern\w*|pain\w*"
-             r"|loss|tragic|alarm\w*|disappoint\w*|melanchol\w*|solemn\w*|unrest|hardship|anxi\w*|worr\w*"
-             r"|disapprov\w*|critical|shock\w*|upset")
-POS_WORDS = (r"positiv\w*|happ\w*|joy\w*|celebrat\w*|cheerful|smil\w*|laugh\w*|warm|friendly|triumph\w*"
-             r"|delight\w*|optimis\w*|enjoy\w*|pleasant|uplifting|cheer\w*|excite\w*|excitement|contentment"
-             r"|gratitude|pride|proud|love|affection\w*")
+NEG_WORDS = (
+    r"negativ\w*|somber|sombre|sad\w*|tense|tension|conflict\w*|fear\w*|anger|angry|distress\w*"
+    r"|grief|danger\w*|chao\w*|destruct\w*|devastat\w*|violen\w*|frustrat\w*|concern\w*|pain\w*"
+    r"|loss|tragic|alarm\w*|disappoint\w*|melanchol\w*|solemn\w*|unrest|hardship|anxi\w*|worr\w*"
+    r"|disapprov\w*|critical|shock\w*|upset"
+)
+POS_WORDS = (
+    r"positiv\w*|happ\w*|joy\w*|celebrat\w*|cheerful|smil\w*|laugh\w*|warm|friendly|triumph\w*"
+    r"|delight\w*|optimis\w*|enjoy\w*|pleasant|uplifting|cheer\w*|excite\w*|excitement|contentment"
+    r"|gratitude|pride|proud|love|affection\w*"
+)
 NEG_RE = re.compile(rf"\b({NEG_WORDS})\b")
 POS_RE = re.compile(rf"\b({POS_WORDS})\b")
 # negator followed (in the same clause, <= 60 chars) by an emotion word
@@ -399,13 +474,16 @@ NONE_RE = re.compile(
     rf" (contain|show|convey|display|depict|have|evoke|present|express)( any)?{_ADJ}( positive or negative| positive and negative)? emotion"
     rf"|no{_ADJ}( positive or negative)? emotion|there is no{_ADJ}( positive or negative)? emotion"
     r"|without any (clear |explicit |obvious )?emotional content"
-    r"|neither positive nor negative|neither overtly positive nor negative|emotionally neutral")
+    r"|neither positive nor negative|neither overtly positive nor negative|emotionally neutral"
+)
 NEUTRAL_RE = re.compile(r"\bneutral\b")
 HOWEVER_RE = re.compile(r"\b(however|but)\b(.*)")
 BOTH_RE = re.compile(r"both positive and negative|mix(ed|ture)? of (emotions|positive and negative)|mixed emotion")
 # explicit conclusion: "Therefore, the (correct) answer is: negative", "Answer: yes", 'the answer would be "none"'
-_ANSWER_RE = re.compile(r"\banswer(?: is| would be)?(?: that)?\s*:?\s*[\"'*]*\s*(?:the picture shows\s*[\"'*]*)?"
-                        r"(yes|no|dk|positive|negative|both|none)\b")
+_ANSWER_RE = re.compile(
+    r"\banswer(?: is| would be)?(?: that)?\s*:?\s*[\"'*]*\s*(?:the picture shows\s*[\"'*]*)?"
+    r"(yes|no|dk|positive|negative|both|none)\b"
+)
 
 
 def _explicit_answer(c):
@@ -450,7 +528,7 @@ def norm_polarity(s):
     m = NONE_RE.search(c)
     if m:
         # "... shows no emotion. However, the text suggests a negative topic" -> follow the 'however' clause
-        h = HOWEVER_RE.search(c[m.end():])
+        h = HOWEVER_RE.search(c[m.end() :])
         pol = _first_polarity_keyword(re.split(r"[.;!]", h.group(2), maxsplit=1)[0]) if h else None
         return (pol, "kw_none_however") if pol else ("none", "kw_none")
     if DK_PAT.search(c):
@@ -536,17 +614,22 @@ def normalise(df, qmeta=None):
 # Politicians dataset: "Is there a politician in the picture?" (target 'politician') and
 # "Is any of Trump / Zelenskyy / Putin in the picture?" (target 'named')
 # ---------------------------------------------------------------------------
-POLITICIAN_WORDS = (r"politicians?|political (figure|leader)s?|president|prime minister|minister|chancellor|senator"
-                    r"|member of (the )?(european )?parliament|\bmp\b|mep|mayor|head of (state|government)"
-                    r"|statesman|congress(wo)?man|governor|party leader|lawmaker")
-NON_POLITICIAN_WORDS = (r"coach|footballer|football (player|manager)|player|athlete|actor|actress|singer|musician"
-                        r"|journalist|news anchor|anchor|presenter|reporter|officer|soldier|celebrity|businessman"
-                        r"|businesswoman|entrepreneur|director|artist|model|influencer|doctor|scientist")
+POLITICIAN_WORDS = (
+    r"politicians?|political (figure|leader)s?|president|prime minister|minister|chancellor|senator"
+    r"|member of (the )?(european )?parliament|\bmp\b|mep|mayor|head of (state|government)"
+    r"|statesman|congress(wo)?man|governor|party leader|lawmaker"
+)
+NON_POLITICIAN_WORDS = (
+    r"coach|footballer|football (player|manager)|player|athlete|actor|actress|singer|musician"
+    r"|journalist|news anchor|anchor|presenter|reporter|officer|soldier|celebrity|businessman"
+    r"|businesswoman|entrepreneur|director|artist|model|influencer|doctor|scientist"
+)
 POL_DK = re.compile(
     r"^i (don'?t|do not) know|i (can'?t|cannot|am unable to|'m unable to|am not able to) (identify|determine|tell|say|recogni)"
     r"|(not|isn'?t) possible to (definitively |reliably |clearly |accurately )?(determine|identify|tell|say)|cannot (definitively |reliably |accurately )?(say|determine|identify|tell)"
     r"|not (clear|enough|sufficient)[^.]{0,30}(identify|determine)|does not provide (enough|sufficient)"
-    r"|difficult to (determine|identify|say|tell)|unable to (determine|identify)|without (more |additional )?(context|information)")
+    r"|difficult to (determine|identify|say|tell)|unable to (determine|identify)|without (more |additional )?(context|information)"
+)
 NAMED_WORDS = r"trump|zelens\w*|zelenskyy|selenskyj|putin"
 
 
@@ -631,8 +714,13 @@ def mapping_review(df, rules=None):
         sub.insert(1, "qid", q)
         rows.append(sub)
     r = pd.concat(rows)
-    return (r.value_counts().rename("n").reset_index()
-            .sort_values(["model", "qid", "rule", "normalised"]).reset_index(drop=True))
+    return (
+        r.value_counts()
+        .rename("n")
+        .reset_index()
+        .sort_values(["model", "qid", "rule", "normalised"])
+        .reset_index(drop=True)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -645,7 +733,7 @@ def mcnemar_exact(b, c):
     if n == 0:
         return 1.0
     k = min(b, c)
-    return min(1.0, 2 * sum(math.comb(n, i) for i in range(k + 1)) / 2 ** n)
+    return min(1.0, 2 * sum(math.comb(n, i) for i in range(k + 1)) / 2**n)
 
 
 def holm(p):
@@ -666,8 +754,7 @@ def _annotate(ax, mat, fmt="{:.2f}", dark_above=None, dark_below=None, fontsize=
         if np.isnan(v):
             continue
         white = (dark_above is not None and v > dark_above) or (dark_below is not None and v < dark_below)
-        ax.text(j, i, fmt.format(v), ha="center", va="center", fontsize=fontsize,
-                color="white" if white else "black")
+        ax.text(j, i, fmt.format(v), ha="center", va="center", fontsize=fontsize, color="white" if white else "black")
 
 
 def plot_heatmap(mat, title, ax, cmap="RdYlGn", vmin=0, vmax=1, xlabels=None, fontsize=8):
@@ -686,10 +773,11 @@ def wilson_ci(k, n, z=1.96):
     if n == 0:
         return np.nan, np.nan
     p = k / n
-    d = 1 + z ** 2 / n
-    c = (p + z ** 2 / (2 * n)) / d
-    h = z * math.sqrt(p * (1 - p) / n + z ** 2 / (4 * n ** 2)) / d
-    return c - h, c + h
+    d = 1 + z**2 / n
+    c = (p + z**2 / (2 * n)) / d
+    h = z * math.sqrt(p * (1 - p) / n + z**2 / (4 * n**2)) / d
+    # clamp so floating-point rounding at p=0 or p=1 cannot put p outside its own interval
+    return max(0.0, min(p, c - h)), min(1.0, max(p, c + h))
 
 
 def pairwise_question_tests(long, model):
@@ -698,11 +786,22 @@ def pairwise_question_tests(long, model):
     qids = [q for q in QIDS if q in w.columns]
     rows = []
     for i, a in enumerate(qids):
-        for b in qids[i + 1:]:
+        for b in qids[i + 1 :]:
             d = w[[a, b]].dropna().astype(bool)
             only_a, only_b = int((d[a] & ~d[b]).sum()), int((~d[a] & d[b]).sum())
-            rows.append({"model": model, "q_a": a, "q_b": b, "n": len(d), "acc_a": d[a].mean(), "acc_b": d[b].mean(),
-                         "only_a_correct": only_a, "only_b_correct": only_b, "p_value": mcnemar_exact(only_a, only_b)})
+            rows.append(
+                {
+                    "model": model,
+                    "q_a": a,
+                    "q_b": b,
+                    "n": len(d),
+                    "acc_a": d[a].mean(),
+                    "acc_b": d[b].mean(),
+                    "only_a_correct": only_a,
+                    "only_b_correct": only_b,
+                    "p_value": mcnemar_exact(only_a, only_b),
+                }
+            )
     t = pd.DataFrame(rows)
     t["p_holm"] = holm(t.p_value)
     t["significant"] = t.p_holm < 0.05
@@ -743,13 +842,20 @@ def image_index(*image_dirs):
 
 def difficulty_by_group(diff, by="subfolder", hard_threshold=0.5):
     g = diff.groupby(by)
-    return pd.DataFrame({"images": g.size(), "mean_share_wrong": g.share_wrong.mean(),
-                         f"hard_images (≥{hard_threshold:.0%} wrong)": g.share_wrong.apply(lambda x: int((x >= hard_threshold).sum()))}
-                        ).sort_values("mean_share_wrong", ascending=False)
+    return pd.DataFrame(
+        {
+            "images": g.size(),
+            "mean_share_wrong": g.share_wrong.mean(),
+            f"hard_images (≥{hard_threshold:.0%} wrong)": g.share_wrong.apply(
+                lambda x: int((x >= hard_threshold).sum())
+            ),
+        }
+    ).sort_values("mean_share_wrong", ascending=False)
 
 
 def _load_thumbnail(path, size=700):
     from PIL import Image
+
     img = Image.open(path)
     img.thumbnail((size, size))
     return img.convert("RGB")
@@ -770,7 +876,9 @@ def plot_image_evaluation(filename, long, images, title=""):
     else:
         ax_img.text(0.5, 0.5, "image not found", ha="center", va="center")
     ax_img.axis("off")
-    ax_img.set_title(f"{filename}\nlabel: {first.label}  |  group: {first.group}  |  folder: {first.subfolder}", fontsize=9)
+    ax_img.set_title(
+        f"{filename}\nlabel: {first.label}  |  group: {first.group}  |  folder: {first.subfolder}", fontsize=9
+    )
 
     rows = ["expected"] + models
     color = np.full((len(rows), len(QIDS)), 0.5)  # 0 = wrong, 1 = correct, 0.5 = neutral
@@ -782,17 +890,20 @@ def plot_image_evaluation(filename, long, images, title=""):
             if r.scored.get(q, False):
                 color[i, j] = float(r.correct[q])
     from matplotlib.colors import ListedColormap
+
     ax_tab.imshow(color, cmap=ListedColormap(["#f4a6a6", "#dddddd", "#a8dba8"]), vmin=0, vmax=1, aspect="auto")
     for i in range(len(rows)):
         for j in range(len(QIDS)):
-            ax_tab.text(j, i, text[i][j], ha="center", va="center", fontsize=8,
-                        fontweight="bold" if i == 0 else "normal")
+            ax_tab.text(
+                j, i, text[i][j], ha="center", va="center", fontsize=8, fontweight="bold" if i == 0 else "normal"
+            )
     ax_tab.set_xticks(range(len(QIDS)), [qlabel(q) for q in QIDS], fontsize=7)
     ax_tab.set_yticks(range(len(rows)), rows, fontsize=8)
     ax_tab.axhline(0.5, color="black", lw=1)
     n_s = g.scored.sum()
-    ax_tab.set_title(f"{title}  wrong: {int(n_s - g.correct.sum())} of {int(n_s)} answers "
-                     "(green = correct, red = wrong)", fontsize=9)
+    ax_tab.set_title(
+        f"{title}  wrong: {int(n_s - g.correct.sum())} of {int(n_s)} answers (green = correct, red = wrong)", fontsize=9
+    )
     fig.tight_layout()
     return fig
 
@@ -834,8 +945,15 @@ def accuracy_table(long, by=("model", "qid")):
         n, k = len(g), int(g.correct.sum())
         lo, hi = wilson_ci(k, n)
         r = dict(zip(by, key if isinstance(key, tuple) else (key,)))
-        r.update(n=n, correct=k, accuracy=k / n, ci_low=lo, ci_high=hi, dk_share=float((g.pred == "dk").mean()),
-                 majority_baseline=float(g.truth.value_counts(normalize=True).iloc[0]))
+        r.update(
+            n=n,
+            correct=k,
+            accuracy=k / n,
+            ci_low=lo,
+            ci_high=hi,
+            dk_share=float((g.pred == "dk").mean()),
+            majority_baseline=float(g.truth.value_counts(normalize=True).iloc[0]),
+        )
         rows.append(r)
     return pd.DataFrame(rows)
 
@@ -843,8 +961,11 @@ def accuracy_table(long, by=("model", "qid")):
 def image_difficulty(long):
     """Per image: number of scored answers, number wrong and share wrong (over all models and questions)."""
     s = long[long.scored]
-    d = (s.groupby(["filename", "label", "group", "subfolder"])["correct"]
-         .agg(n_answers="count", n_correct="sum").reset_index())
+    d = (
+        s.groupby(["filename", "label", "group", "subfolder"])["correct"]
+        .agg(n_answers="count", n_correct="sum")
+        .reset_index()
+    )
     d["n_wrong"] = d.n_answers - d.n_correct
     d["share_wrong"] = d.n_wrong / d.n_answers
     return d.drop(columns="n_correct").sort_values(["share_wrong", "filename"], ascending=[False, True])
@@ -880,8 +1001,10 @@ def result_data(data, rules):
     unparsed = int(rules.get("unparsed", pd.Series(0)).sum())
     coded = int(rules.get("package_code", pd.Series(0)).sum())
     missing = int(rules.get("missing", pd.Series(0)).sum())
-    t = (f"{n_img} images have results and a ground-truth label "
-         f"(label: number of images – {', '.join(f'{k}: {v}' for k, v in counts.items())}). ")
+    t = (
+        f"{n_img} images have results and a ground-truth label "
+        f"(label: number of images – {', '.join(f'{k}: {v}' for k, v in counts.items())}). "
+    )
     if coded:
         t += f"{coded} answers are taken from the pre-coded results. "
     t += f"{kw} of {total} answers needed keyword rules and {unparsed} {'remains' if unparsed == 1 else 'remain'} unparsed"
@@ -892,19 +1015,28 @@ def result_data(data, rules):
 def result_accuracy(acc):
     a = acc.sort_values("accuracy", ascending=False)
     b, w = a.iloc[0], a.iloc[-1]
-    t = (f"The most accurate question is {b.qid} ({_f(b.accuracy)}, 95% CI {_f(b.ci_low)}–{_f(b.ci_high)}), "
-         f"the least accurate {w.qid} ({_f(w.accuracy)}). ")
+    t = (
+        f"The most accurate question is {b.qid} ({_f(b.accuracy)}, 95% CI {_f(b.ci_low)}–{_f(b.ci_high)}), "
+        f"the least accurate {w.qid} ({_f(w.accuracy)}). "
+    )
     dk = acc[acc.dk_share >= 0.05]
-    t += (f"DK answers matter for {_join(f'{r.qid} ({r.dk_share:.0%})' for r in dk.itertuples())}. " if len(dk)
-          else "DK answers play no role (below 5% for every question). ")
+    t += (
+        f"DK answers matter for {_join(f'{r.qid} ({r.dk_share:.0%})' for r in dk.itertuples())}. "
+        if len(dk)
+        else "DK answers play no role (below 5% for every question). "
+    )
     weak = acc[acc.accuracy <= acc.majority_baseline + 0.02]
     if len(weak):
-        t += (f"{_join(weak.qid)} {'is' if len(weak) == 1 else 'are'} not better than always giving the most "
-              f"frequent expected answer (baseline {_join(_f(x) for x in weak.majority_baseline)}). ")
+        t += (
+            f"{_join(weak.qid)} {'is' if len(weak) == 1 else 'are'} not better than always giving the most "
+            f"frequent expected answer (baseline {_join(_f(x) for x in weak.majority_baseline)}). "
+        )
     imb = acc[acc.majority_baseline >= 0.8]
     if len(imb):
-        t += (f"For {_join(imb.qid)} the expected answers are imbalanced (baseline "
-              f"{_join(_f(x) for x in imb.majority_baseline)}), so read the accuracy per group.")
+        t += (
+            f"For {_join(imb.qid)} the expected answers are imbalanced (baseline "
+            f"{_join(_f(x) for x in imb.majority_baseline)}), so read the accuracy per group."
+        )
     return t
 
 
@@ -923,8 +1055,11 @@ def result_pairs(tests):
     sig = tests[tests.significant].sort_values("p_holm")
     if not len(sig):
         return f"No difference between two questions is significant (smallest p_holm = {_f(tests.p_holm.min())})."
-    items = [f"{r.q_a if r.acc_a > r.acc_b else r.q_b} > {r.q_b if r.acc_a > r.acc_b else r.q_a} "
-             f"({_f(max(r.acc_a, r.acc_b))} vs. {_f(min(r.acc_a, r.acc_b))})" for r in sig.head(6).itertuples()]
+    items = [
+        f"{r.q_a if r.acc_a > r.acc_b else r.q_b} > {r.q_b if r.acc_a > r.acc_b else r.q_a} "
+        f"({_f(max(r.acc_a, r.acc_b))} vs. {_f(min(r.acc_a, r.acc_b))})"
+        for r in sig.head(6).itertuples()
+    ]
     more = f" and {len(sig) - 6} more" if len(sig) > 6 else ""
     return f"{len(sig)} of {len(tests)} question pairs differ significantly: {_join(items)}{more}."
 
@@ -937,11 +1072,22 @@ def best_questions(acc, tests, questions=None):
         a = a.sort_values("accuracy", ascending=False)
         best = a.iloc[0].qid
         t = tests[tests.model == m]
-        tied = [best] + [q for q in a.qid[1:]
-                         if not t[((t.q_a == best) & (t.q_b == q)) | ((t.q_a == q) & (t.q_b == best))].significant.iloc[0]]
-        rows.append({"model": m, "best_question": best, "best_accuracy": a.iloc[0].accuracy,
-                     "not_significantly_worse": ", ".join(sorted(tied)), "worst_question": a.iloc[-1].qid,
-                     "worst_accuracy": a.iloc[-1].accuracy, "mean_accuracy": a.accuracy.mean()})
+        tied = [best] + [
+            q
+            for q in a.qid[1:]
+            if not t[((t.q_a == best) & (t.q_b == q)) | ((t.q_a == q) & (t.q_b == best))].significant.iloc[0]
+        ]
+        rows.append(
+            {
+                "model": m,
+                "best_question": best,
+                "best_accuracy": a.iloc[0].accuracy,
+                "not_significantly_worse": ", ".join(sorted(tied)),
+                "worst_question": a.iloc[-1].qid,
+                "worst_accuracy": a.iloc[-1].accuracy,
+                "mean_accuracy": a.accuracy.mean(),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -951,17 +1097,23 @@ def result_best(best):
         tied = r.not_significantly_worse.split(", ")
         t = f"Use {r.best_question} ({_f(r.best_accuracy)})"
         others = [q for q in tied if q != r.best_question]
-        return t + (f"; {_join(others)} {'is' if len(others) == 1 else 'are'} not significantly worse, so the "
-                    f"simplest of these wordings is an equally good choice." if others else
-                    "; every other question is significantly worse.")
+        return t + (
+            f"; {_join(others)} {'is' if len(others) == 1 else 'are'} not significantly worse, so the "
+            f"simplest of these wordings is an equally good choice."
+            if others
+            else "; every other question is significantly worse."
+        )
     per = _join(f"{r.model}: {r.best_question} ({_f(r.best_accuracy)})" for r in best.itertuples())
     sets = [set(s.split(", ")) for s in best.not_significantly_worse]
     common = sorted(set.intersection(*sets))
     t = f"Best question per model – {per}. "
-    t += (f"{_join(common)} {'is' if len(common) == 1 else 'are'} the best or not significantly worse than the best "
-          f"for every model, i.e. a safe choice across models." if common else
-          "No question is the best or not significantly worse than the best for all models, so the choice "
-          "of wording depends on the model.")
+    t += (
+        f"{_join(common)} {'is' if len(common) == 1 else 'are'} the best or not significantly worse than the best "
+        f"for every model, i.e. a safe choice across models."
+        if common
+        else "No question is the best or not significantly worse than the best for all models, so the choice "
+        "of wording depends on the model."
+    )
     return t
 
 
@@ -969,11 +1121,15 @@ def result_difficulty(diff):
     zero = int((diff.n_wrong == 0).sum())
     hard = diff[diff.share_wrong >= 0.5]
     g = diff.groupby("group").share_wrong.mean().sort_values()
-    t = (f"{zero} of {len(diff)} images are answered correctly in all {int(diff.n_answers.max())} answers, and "
-         f"{len(hard)} are wrong in half or more")
+    t = (
+        f"{zero} of {len(diff)} images are answered correctly in all {int(diff.n_answers.max())} answers, and "
+        f"{len(hard)} are wrong in half or more"
+    )
     t += f" ({', '.join(f'{v} {k}' for k, v in hard.group.value_counts().items())}). " if len(hard) else ". "
-    t += (f"The hardest group is {g.index[-1]} ({g.iloc[-1]:.0%} wrong answers on average), "
-          f"the easiest {g.index[0]} ({g.iloc[0]:.0%}).")
+    t += (
+        f"The hardest group is {g.index[-1]} ({g.iloc[-1]:.0%} wrong answers on average), "
+        f"the easiest {g.index[0]} ({g.iloc[0]:.0%})."
+    )
     return t
 
 
@@ -984,36 +1140,51 @@ def result_examples(examples, long):
         if not len(w):
             lines.append(f"`{r.filename}` ({r.group}): no wrong answers.")
             continue
-        (truth, pred), n = w.groupby(["truth", "pred"]).size().sort_values().index[-1], \
-            w.groupby(["truth", "pred"]).size().max()
+        (truth, pred), n = (
+            w.groupby(["truth", "pred"]).size().sort_values().index[-1],
+            w.groupby(["truth", "pred"]).size().max(),
+        )
         models = w.model.value_counts()
         who = f" by {_join(models.index)}" if long.model.nunique() > 1 else ""
-        lines.append(f"`{r.filename}` ({r.group}): {int(r.n_wrong)} of {int(r.n_answers)} answers wrong{who}; "
-                     f"most often \"{pred}\" instead of \"{truth}\" ({n}x).")
-    return "<br>".join(lines) + "<br>Look at the images: errors on every question point to a hard image or a questionable label, errors on some questions to the wording."
+        lines.append(
+            f"`{r.filename}` ({r.group}): {int(r.n_wrong)} of {int(r.n_answers)} answers wrong{who}; "
+            f'most often "{pred}" instead of "{truth}" ({n}x).'
+        )
+    return (
+        "<br>".join(lines)
+        + "<br>Look at the images: errors on every question point to a hard image or a questionable label, errors on some questions to the wording."
+    )
 
 
 def result_models_accuracy(acc):
-    per = _join(f"{m} {_f(a.accuracy.min())}–{_f(a.accuracy.max())} (best {a.sort_values('accuracy').iloc[-1].qid})"
-                for m, a in acc.groupby("model", sort=False))
+    per = _join(
+        f"{m} {_f(a.accuracy.min())}–{_f(a.accuracy.max())} (best {a.sort_values('accuracy').iloc[-1].qid})"
+        for m, a in acc.groupby("model", sort=False)
+    )
     b = acc.sort_values("accuracy").iloc[-1]
     t = f"Accuracy range per model: {per}. The best combination is {b.model} with {b.qid} ({_f(b.accuracy)}). "
     dk = acc[acc.dk_share >= 0.1].sort_values("dk_share", ascending=False)
     if len(dk):
-        t += ("High DK shares lower the accuracy for "
-              f"{_join(f'{r.model} {r.qid} ({r.dk_share:.0%})' for r in dk.head(5).itertuples())}. ")
+        t += (
+            "High DK shares lower the accuracy for "
+            f"{_join(f'{r.model} {r.qid} ({r.dk_share:.0%})' for r in dk.head(5).itertuples())}. "
+        )
     imb = acc.groupby("qid").majority_baseline.first()
     imb = imb[imb >= 0.8]
     if len(imb):
-        t += (f"For {_join(imb.index)} the expected answers are imbalanced (baseline "
-              f"{_join(_f(x) for x in imb)}), so a high accuracy there is easy to reach; read it per group.")
+        t += (
+            f"For {_join(imb.index)} the expected answers are imbalanced (baseline "
+            f"{_join(_f(x) for x in imb)}), so a high accuracy there is easy to reach; read it per group."
+        )
     return t
 
 
 def result_models_lines(acc):
     s = acc.groupby("qid").accuracy.agg(lambda x: x.max() - x.min()).reindex(QIDS)
-    return (f"The models agree most on {s.idxmin()} (spread {_f(s.min())}) and differ most on {s.idxmax()} "
-            f"(spread {_f(s.max())} between the best and the worst model).")
+    return (
+        f"The models agree most on {s.idxmin()} (spread {_f(s.min())}) and differ most on {s.idxmax()} "
+        f"(spread {_f(s.max())} between the best and the worst model)."
+    )
 
 
 def result_models_groups(acc_group):
@@ -1028,8 +1199,9 @@ def result_models_groups(acc_group):
 def result_models_pairs(tests):
     n = tests.groupby("model").size().iloc[0]
     s = tests.groupby("model", sort=False).significant.sum()
-    return (f"Significant question differences (of {n} pairs): {_join(f'{m} {int(v)}' for m, v in s.items())}. "
-            + ("No question difference is significant for any model." if s.sum() == 0 else ""))
+    return f"Significant question differences (of {n} pairs): {_join(f'{m} {int(v)}' for m, v in s.items())}. " + (
+        "No question difference is significant for any model." if s.sum() == 0 else ""
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1043,11 +1215,17 @@ def _save(fig, run, name):
 
 def show_questions(run):
     """The questions and how their expected answer is derived from the ground truth."""
-    t = pd.DataFrame({
-        "type": QMETA.target, "style": QMETA["style"], "question": QMETA.question,
-        "expected answer (label -> answer)": [
-            (f"{c}: " if c != "label" else "") + ", ".join(f"{k} -> {v}" for k, v in EXPECTED[t].items())
-            for t, c in zip(QMETA.target, QMETA.label_col)]})
+    t = pd.DataFrame(
+        {
+            "type": QMETA.target,
+            "style": QMETA["style"],
+            "question": QMETA.question,
+            "expected answer (label -> answer)": [
+                (f"{c}: " if c != "label" else "") + ", ".join(f"{k} -> {v}" for k, v in EXPECTED[t].items())
+                for t, c in zip(QMETA.target, QMETA.label_col)
+            ],
+        }
+    )
     display(t)
 
 
@@ -1056,13 +1234,22 @@ def show_normalisation(run):
     data = run.data[run.data.filename.isin(run.long.filename)]
     rules = rule_counts(data)
     display(rules)
-    review = mapping_review(data, rules=[r for r in rules.columns if r not in ("exact", "first", "missing", "package_code")])
+    review = mapping_review(
+        data, rules=[r for r in rules.columns if r not in ("exact", "first", "missing", "package_code")]
+    )
     review.to_csv(run.out / "mapping_review.csv", index=False)
     if len(review):
-        print(f"{len(review)} distinct keyword-mapped or unparsed answers (all in {run.out / 'mapping_review.csv'}); sample:")
-        display(pd.concat([review[review.rule == "unparsed"],
-                           review[review.rule != "unparsed"].sample(frac=1, random_state=0)
-                           .groupby(["model", "rule"]).head(3)])[["model", "qid", "rule", "normalised", "raw"]])
+        print(
+            f"{len(review)} distinct keyword-mapped or unparsed answers (all in {run.out / 'mapping_review.csv'}); sample:"
+        )
+        display(
+            pd.concat(
+                [
+                    review[review.rule == "unparsed"],
+                    review[review.rule != "unparsed"].sample(frac=1, random_state=0).groupby(["model", "rule"]).head(3),
+                ]
+            )[["model", "qid", "rule", "normalised", "raw"]]
+        )
     text = result_data(data, rules)
     if run.n_dropped:
         text += f" {run.n_dropped} images are dropped because a model has no answer for them."
@@ -1075,18 +1262,40 @@ def show_accuracy(run):
     acc.to_csv(run.out / "accuracy.csv", index=False)
     xl = [qlabel(q) for q in QIDS]
     if len(run.models) == 1:
-        display(acc[["qid", "target", "style", "n", "correct", "accuracy", "ci_low", "ci_high", "dk_share",
-                     "majority_baseline"]].round(3))
+        display(
+            acc[
+                [
+                    "qid",
+                    "target",
+                    "style",
+                    "n",
+                    "correct",
+                    "accuracy",
+                    "ci_low",
+                    "ci_high",
+                    "dk_share",
+                    "majority_baseline",
+                ]
+            ].round(3)
+        )
         fig, ax = plt.subplots(figsize=(max(6, 1.3 * len(acc)), 4))
         x = np.arange(len(acc))
         palette = dict(zip(QMETA.target.unique(), plt.cm.tab10.colors))
-        ax.bar(x, acc.accuracy, color=acc.target.map(palette),
-               yerr=[acc.accuracy - acc.ci_low, acc.ci_high - acc.accuracy], capsize=4)
+        ax.bar(
+            x,
+            acc.accuracy,
+            color=acc.target.map(palette),
+            yerr=np.clip([acc.accuracy - acc.ci_low, acc.ci_high - acc.accuracy], 0, None),
+            capsize=4,
+        )
         ax.scatter(x, acc.majority_baseline, marker="_", s=600, color="black", zorder=3, label="majority baseline")
         for xi, v in zip(x, acc.accuracy):
             ax.text(xi, 0.03, f"{v:.2f}", ha="center", color="white", fontsize=9)
         ax.set_xticks(x, [qlabel(q) for q in acc.qid], fontsize=8)
-        ax.set_ylim(0, 1); ax.set_ylabel("accuracy"); ax.grid(axis="y", alpha=.3); ax.legend(fontsize=8)
+        ax.set_ylim(0, 1)
+        ax.set_ylabel("accuracy")
+        ax.grid(axis="y", alpha=0.3)
+        ax.legend(fontsize=8)
         ax.set_title("Accuracy per question (95% Wilson CI); colour = question type")
         _save(fig, run, "accuracy.png")
         show_result(result_accuracy(acc))
@@ -1104,10 +1313,19 @@ def show_accuracy(run):
     x = np.arange(len(QIDS))
     for i, m in enumerate(run.models):
         s = acc[acc.model == m].set_index("qid").reindex(QIDS)
-        ax.errorbar(x + (i - (len(run.models) - 1) / 2) * 0.08, s.accuracy,
-                    yerr=[s.accuracy - s.ci_low, s.ci_high - s.accuracy], marker="o", capsize=3, label=m)
+        ax.errorbar(
+            x + (i - (len(run.models) - 1) / 2) * 0.08,
+            s.accuracy,
+            yerr=np.clip([s.accuracy - s.ci_low, s.ci_high - s.accuracy], 0, None),
+            marker="o",
+            capsize=3,
+            label=m,
+        )
     ax.set_xticks(x, xl, fontsize=8)
-    ax.set_ylim(0, 1); ax.set_ylabel("accuracy"); ax.grid(alpha=.3); ax.legend(fontsize=8)
+    ax.set_ylim(0, 1)
+    ax.set_ylabel("accuracy")
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8)
     ax.set_title("Accuracy per question and model (95% Wilson CI)")
     _save(fig, run, "accuracy_lines.png")
     show_result(result_models_accuracy(acc) + " " + result_models_lines(acc))
@@ -1139,16 +1357,20 @@ def show_pairs(run):
     tests.to_csv(run.out / "question_pairs_mcnemar.csv", index=False)
     ncol = min(2, len(run.models))
     nrow = int(np.ceil(len(run.models) / ncol))
-    fig, axes = plt.subplots(nrow, ncol, figsize=(ncol * (0.9 * len(QIDS) + 4), nrow * (0.8 * len(QIDS) + 1.5)),
-                             squeeze=False)
+    fig, axes = plt.subplots(
+        nrow, ncol, figsize=(ncol * (0.9 * len(QIDS) + 4), nrow * (0.8 * len(QIDS) + 1.5)), squeeze=False
+    )
     for ax, m in zip(axes.flat, run.models):
         plot_pairwise(tests[tests.model == m], ax, f"{m}: row minus column; * = significant")
-    for ax in list(axes.flat)[len(run.models):]:
+    for ax in list(axes.flat)[len(run.models) :]:
         ax.axis("off")
     _save(fig, run, "question_pairs.png")
     if len(run.models) == 1:
-        display(tests[["q_a", "q_b", "acc_a", "acc_b", "only_a_correct", "only_b_correct", "p_holm",
-                       "significant"]].round(4))
+        display(
+            tests[["q_a", "q_b", "acc_a", "acc_b", "only_a_correct", "only_b_correct", "p_holm", "significant"]].round(
+                4
+            )
+        )
         show_result(result_pairs(tests))
     else:
         show_result(result_models_pairs(tests))
@@ -1168,9 +1390,12 @@ def show_difficult_images(run, per_group=2):
     long = run.long
     diff = image_difficulty(long)
     if len(run.models) > 1:
-        per_model = (long[long.scored].assign(wrong=lambda d: 1 - d.correct)
-                     .pivot_table(index="filename", columns="model", values="wrong", aggfunc="sum")
-                     .reindex(columns=run.models))
+        per_model = (
+            long[long.scored]
+            .assign(wrong=lambda d: 1 - d.correct)
+            .pivot_table(index="filename", columns="model", values="wrong", aggfunc="sum")
+            .reindex(columns=run.models)
+        )
         diff = diff.join(per_model, on="filename")
     diff.to_csv(run.out / "image_difficulty.csv", index=False)
 
@@ -1178,15 +1403,20 @@ def show_difficult_images(run, per_group=2):
     fig, ax = plt.subplots(figsize=(min(12, 4 + 0.3 * n_max), 3))
     counts = diff.n_wrong.value_counts().reindex(range(n_max + 1), fill_value=0)
     ax.bar(counts.index, counts.values, color="tab:gray")
-    ax.set_xlabel(f"wrong answers per image (of {n_max})"); ax.set_ylabel("images")
+    ax.set_xlabel(f"wrong answers per image (of {n_max})")
+    ax.set_ylabel("images")
     ax.set_title("How many answers go wrong per image")
     _save(fig, run, "image_difficulty_hist.png")
     display(difficulty_by_group(diff, by=["group", "subfolder"]).round(2))
     show_result(result_difficulty(diff))
 
     examples = pick_examples(diff, per_group=per_group, order=run.cfg.get("group_order"))
-    display(Markdown("**Hardest images per group** – left: the image; right: expected answer (first row) and "
-                     "normalised answers, green = correct, red = wrong. Below: the raw wrong answers."))
+    display(
+        Markdown(
+            "**Hardest images per group** – left: the image; right: expected answer (first row) and "
+            "normalised answers, green = correct, red = wrong. Below: the raw wrong answers."
+        )
+    )
     for fn in examples.filename:
         plot_image_evaluation(fn, long, run.images)
         plt.show()
@@ -1200,28 +1430,44 @@ def show_hardest_images(run, n=6):
     diff = image_difficulty(run.long)
     diff.to_csv(run.out / "image_difficulty.csv", index=False)
     hardest = diff.sort_values(["share_wrong", "n_wrong", "filename"], ascending=[False, False, True]).head(n)
-    print(f"{int((diff.share_wrong >= hardest.share_wrong.min()).sum())} of {len(diff)} scored images have at least "
-          f"{hardest.share_wrong.min():.0%} wrong answers; the {len(hardest)} hardest are shown "
-          f"(all in {run.out / 'image_difficulty.csv'}).")
+    print(
+        f"{int((diff.share_wrong >= hardest.share_wrong.min()).sum())} of {len(diff)} scored images have at least "
+        f"{hardest.share_wrong.min():.0%} wrong answers; the {len(hardest)} hardest are shown "
+        f"(all in {run.out / 'image_difficulty.csv'})."
+    )
     for r in hardest.itertuples():
-        display(Markdown(f"### `{r.filename}`  \nlabel: **{r.label}**  |  group: {r.group}  |  folder: {r.subfolder}"
-                         f"  |  **{int(r.n_wrong)} of {int(r.n_answers)} answers wrong**"))
-        fig, ax = plt.subplots(figsize=(6, 4.5))
+        display(
+            Markdown(
+                f"### `{r.filename}`  \nlabel: **{r.label}**  |  group: {r.group}  |  folder: {r.subfolder}"
+                f"  |  **{int(r.n_wrong)} of {int(r.n_answers)} answers wrong**"
+            )
+        )
+        _fig, ax = plt.subplots(figsize=(6, 4.5))
         path = run.images.get(r.filename)
         if path is not None:
             ax.imshow(_load_thumbnail(path))
         else:
-            ax.text(0.5, 0.5, "image not found in IMAGE_DIR",
-                    ha="center", va="center")
+            ax.text(0.5, 0.5, "image not found in IMAGE_DIR", ha="center", va="center")
         ax.axis("off")
         plt.show()
 
         g = run.long[run.long.filename == r.filename].set_index("qid").reindex(QIDS)
         verdict = np.where(~g.scored.astype(bool), "– not scored", np.where(g.correct == 1, "✓ correct", "✗ wrong"))
-        display(pd.DataFrame({"question": [qlabel(q).split("\n")[1] for q in QIDS],
-                              "generated answer": g.raw.fillna("(no answer)").astype(str).str.replace("\n", " "),
-                              "read as": g.pred, "expected": g.truth.fillna("–"), "": verdict}, index=QIDS))
+        display(
+            pd.DataFrame(
+                {
+                    "question": [qlabel(q).split("\n")[1] for q in QIDS],
+                    "generated answer": g.raw.fillna("(no answer)").astype(str).str.replace("\n", " "),
+                    "read as": g.pred,
+                    "expected": g.truth.fillna("–"),
+                    "": verdict,
+                },
+                index=QIDS,
+            )
+        )
         wrong = g[g.scored.astype(bool) & (g.correct == 0)]
-        show_result("Wrong answers: " + _join(f"{q} (\"{w.pred}\" instead of \"{w.truth}\")"
-                                              for q, w in wrong.iterrows()) + "." if len(wrong)
-                    else "No wrong answers.")
+        show_result(
+            "Wrong answers: " + _join(f'{q} ("{w.pred}" instead of "{w.truth}")' for q, w in wrong.iterrows()) + "."
+            if len(wrong)
+            else "No wrong answers."
+        )

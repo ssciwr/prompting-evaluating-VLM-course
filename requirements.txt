@@ -1,0 +1,7 @@
+# Packages for the evaluation notebooks in notebooks/ (Python >= 3.10).
+# The model answers are generated with ammico (https://github.com/ssciwr/AMMICO), installed separately.
+pandas>=2.0
+numpy>=1.24
+matplotlib>=3.7
+ipython>=8.0
+jupyterlab

@@ -54,7 +54,7 @@ workshop_112026/
 ## Workflow
 
 1. **Generate the answers.** Run the visual question answering with AMMICO on the images of one dataset, using the questions of that dataset (all of them, in the same order). Save the result as a csv file, e.g. `my_results/emotions_vqa.csv`. Repeat with other models to compare models.
-2. **Evaluate the questions.** Open one of the notebooks in [`notebooks/`](notebooks/) and set the two paths in the SETTINGS cell: the result file(s) and the image folder.
+2. **Evaluate the questions.** Install the packages with `pip install -r requirements.txt` (already available on the course JupyterHub), then open one of the notebooks in [`notebooks/`](notebooks/) and set the two paths in the SETTINGS cell: the result file(s) and the image folder.
    - [`question_accuracy_single_model.ipynb`](notebooks/question_accuracy_single_model.ipynb): which question gets the most images right for one model?
    - [`question_accuracy_models.ipynb`](notebooks/question_accuracy_models.ipynb): the same for several models, and do the models agree on the best question?
 
@@ -62,7 +62,7 @@ The dataset is detected from the image names in the result file, and the ground 
 
 ## Politicians dataset
 
-Images with and without politicians. Q1–Q3 ask whether there is a politician in the picture (open, constrained to yes / no / dk, constrained with a justification); they are scored against the column `politician`. Q4 asks whether Donald Trump, Volodymyr Zelenskyy or Vladimir Putin is in the picture; it is scored against the column `trump_zelenskyy_putin` and is not part of the summary, as it asks a different question.
+Images with and without politicians. Q1–Q3 ask whether there is a politician in the picture (open, constrained to yes / no / dk, constrained with a justification); they are scored against the column `politician`. Q4 asks whether Donald Trump, Volodymyr Zelenskyy or Vladimir Putin is in the picture; it is scored against the column `named_politician` (none / trump / zelenskyy / putin) and is not part of the summary, as it asks a different question.
 
 ## Emotions dataset
 
@@ -71,3 +71,7 @@ Images with negative, neutral and positive emotional content (column `emotion`),
 ## Symbols dataset
 
 Images with and without national or EU symbols (column `human_nat_eu_symbol`, grouped into EU flag, other national or EU symbol, no symbol in `human_category`). The 4 questions differ in the examples they give and whether they point out symbols that are only partly visible or blended into the image.
+
+## Development
+
+The code is checked with [pre-commit](https://pre-commit.com/): `ruff` lints and formats the Python code and `nbstripout` removes the outputs from the notebooks, so that every participant generates their own. Install the hooks with `pip install pre-commit && pre-commit install`.
