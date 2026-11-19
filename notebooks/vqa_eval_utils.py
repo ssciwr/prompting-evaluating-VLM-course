@@ -1044,7 +1044,7 @@ def _save(fig, run, name):
 def show_questions(run):
     """The questions and how their expected answer is derived from the ground truth."""
     t = pd.DataFrame({
-        "type": QMETA.target, "style": QMETA.style, "question": QMETA.question,
+        "type": QMETA.target, "style": QMETA["style"], "question": QMETA.question,
         "expected answer (label -> answer)": [
             (f"{c}: " if c != "label" else "") + ", ".join(f"{k} -> {v}" for k, v in EXPECTED[t].items())
             for t, c in zip(QMETA.target, QMETA.label_col)]})
