@@ -53,11 +53,11 @@ Images with and without politicians. Full example notebooks are [here](./noteboo
 
 ## Emotions dataset
 
-Images with negative, neutral and positive emotional content (column `emotion`), coming from different sources (column `subfolder`, e.g. neutral visuals with negative text). Full example notebooks are [here](./notebooks/workshop_single_model_112026_emotions.ipynb) for the single model and [here](./notebooks/workshop_multi_model_112026_emotionss.ipynb) for a comparison of multiple models.
+Images with negative, neutral and positive emotional content, coming from different modalities (e.g. neutral visuals with negative text). Full example notebooks are [here](./notebooks/workshop_single_model_112026_emotions.ipynb) for the single model and [here](./notebooks/workshop_multi_model_112026_emotions.ipynb) for a comparison of multiple models.
 
 ## Symbols dataset
 
-Images with and without national or EU symbols (column `human_nat_eu_symbol`. Full example notebooks are [here](./notebooks/workshop_single_model_112026_symbols.ipynb) for the single model and [here](./notebooks/workshop_multi_model_112026_symbols.ipynb) for a comparison of multiple models.
+Images with and without national or EU symbols. Full example notebooks are [here](./notebooks/workshop_single_model_112026_symbols.ipynb) for the single model and [here](./notebooks/workshop_multi_model_112026_symbols.ipynb) for a comparison of multiple models.
 
 ## Development
 
