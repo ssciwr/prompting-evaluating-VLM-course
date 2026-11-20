@@ -9,7 +9,7 @@ This is a half-day course. You can find the slides [here](ammico-course.pdf).
 
 ## Prerequisites
 
-Participants should have basic familiarity with handling structured data such as CSV files. In addition, basic familiarity with Python and Jupyter notebooks, as well as with generative AI and large language models, is useful but not required. Participants are required to bring their own laptops to work on during the course. They need to have a registered ORCID account to be able to use the Jupyter4NFDI service.
+Participants should have basic familiarity with handling structured data such as CSV files. In addition, basic familiarity with Python and Jupyter notebooks, as well as with generative AI and large language models, is useful but not required. Participants are required to bring their own laptops to work on during the course. They need to have a registered ORCID account to be able to use the [Jupyter4NFDI](https://hub.nfdi-jupyter.de/hub/home) service.
 
 ## Summary
 Multimodal AI models can analyze text, images, video, and combinations thereof, enabling researchers to extract structured information from increasingly large and heterogeneous datasets. However, the results of these models depend strongly on the selected model and model parameters, the dataset, and - particularly - the way a task is formulated through prompts.
